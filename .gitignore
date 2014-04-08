@@ -1,0 +1,6 @@
+*.keystore
+*.sw*
+platforms/^.*
+.idea
+console.log
+node_modules/
