@@ -31,7 +31,7 @@ angular.module('starter', ['ionic',
       if (to.data && to.data.requiresLogin) {
         if (!auth.isAuthenticated) {
           e.preventDefault();
-          $state.go('/');
+          $state.go('root');
         }
       }
     });
