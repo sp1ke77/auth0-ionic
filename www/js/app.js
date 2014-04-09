@@ -10,7 +10,7 @@ angular.module('starter', ['ionic',
   'auth0', 'authInterceptor', 'ngCookies'])
 
 .run(function($ionicPlatform, $rootScope, $state, auth,
-  AUTH_EVENTS) {
+  AUTH_EVENTS, Loading) {
   $ionicPlatform.ready(function() {
     if(window.StatusBar) {
       // org.apache.cordova.statusbar required
@@ -18,15 +18,22 @@ angular.module('starter', ['ionic',
     }
   });
 
+   // Auth0 login events
    $rootScope.$on(AUTH_EVENTS.loginSuccess, function () {
       // When Auth0 login success
-      $state.go('tab.dash');
+      $state.go('tab.dash').finally(function() {
+        Loading.stop();
+      });
     });
     $rootScope.$on(AUTH_EVENTS.loginFailed, function () {
       // When Auth0 login fails
-      $state.go('root', {error: true});
+      $state.go('root', {error: true}).finally(function() {
+        Loading.stop();
+      });
     });
 
+    // This function checks for the `requiresLogin` flag.
+    // If it's true, if checks that the user is authenticated
     $rootScope.$on('$stateChangeStart', function(e, to) {
       if (to.data && to.data.requiresLogin) {
         if (!auth.isAuthenticated) {
@@ -79,25 +86,6 @@ angular.module('starter', ['ionic',
         'tab-dash': {
           templateUrl: 'templates/tab-dash.html',
           controller: 'DashCtrl'
-        }
-      }
-    })
-
-    .state('tab.friends', {
-      url: '/friends',
-      views: {
-        'tab-friends': {
-          templateUrl: 'templates/tab-friends.html',
-          controller: 'FriendsCtrl'
-        }
-      }
-    })
-    .state('tab.friend-detail', {
-      url: '/friend/:friendId',
-      views: {
-        'tab-friends': {
-          templateUrl: 'templates/friend-detail.html',
-          controller: 'FriendDetailCtrl'
         }
       }
     })

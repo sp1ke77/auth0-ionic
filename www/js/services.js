@@ -1,26 +1,26 @@
-angular.module('starter.services', [])
+angular.module('starter.services', ['ionic'])
 
 /**
- * A simple example service that returns some data.
+ * Loading service
  */
-.factory('Friends', function() {
-  // Might use a resource here that returns a JSON array
+.service('Loading', function($ionicLoading) {
 
-  // Some fake testing data
-  var friends = [
-    { id: 0, name: 'Scruff McGruff' },
-    { id: 1, name: 'G.I. Joe' },
-    { id: 2, name: 'Miss Frizzle' },
-    { id: 3, name: 'Ash Ketchum' }
-  ];
-
-  return {
-    all: function() {
-      return friends;
-    },
-    get: function(friendId) {
-      // Simple index lookup
-      return friends[friendId];
+  var currentLoading;
+  
+  this.start = function() {
+    if (!currentLoading) {
+      currentLoading = $ionicLoading.show({
+        content: 'Loading',
+      });
     }
   }
+
+  this.stop = function() {
+    if (currentLoading) {
+      currentLoading.hide();
+      currentLoading = null;
+    }
+  }
+
+  
 });
