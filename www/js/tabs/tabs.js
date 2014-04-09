@@ -1,4 +1,4 @@
-angular.module('starter.controllers', [])
+angular.module('starter.tabs', [])
 
 .controller('DashCtrl', function($scope) {
 })

@@ -1,0 +1,19 @@
+<ion-view title="MyInfo">
+  <ion-content>
+
+    <div class="content has-header">
+      <a class="button button-icon icon ion-settings" ng-click="signinWithGoogle()"></a>
+      <div class="list list-inset">
+        <label class="item item-input">
+          <input type="text" placeholder="Username" ng-model="username">
+        </label>
+        <label class="item item-input">
+          <input type="password" placeholder="Password" ng-model="password">
+        </label>
+    </div>
+
+    <div class="padding">
+      <button ng-click ="signin()" class="button button-block button-positive">Login</button>
+    </div>
+  </ion-content>
+</ion-view>
