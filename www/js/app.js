@@ -7,30 +7,15 @@
 // 'starter.controllers' is found in controllers.js
 angular.module('starter', ['ionic', 
   'starter.tabs', 'starter.login', 'starter.services',
-  'auth0', 'authInterceptor', 'ngCookies'])
+  'auth0', 'ngCookies'])
 
-.run(function($ionicPlatform, $rootScope, $state, auth,
-  AUTH_EVENTS, Loading) {
+.run(function($ionicPlatform, $rootScope, $state, auth, Loading) {
   $ionicPlatform.ready(function() {
     if(window.StatusBar) {
       // org.apache.cordova.statusbar required
       StatusBar.styleDefault();
     }
   });
-
-   // Auth0 login events
-   $rootScope.$on(AUTH_EVENTS.loginSuccess, function () {
-      // When Auth0 login success
-      $state.go('tab.dash').finally(function() {
-        Loading.stop();
-      });
-    });
-    $rootScope.$on(AUTH_EVENTS.loginFailed, function () {
-      // When Auth0 login fails
-      $state.go('root', {error: true}).finally(function() {
-        Loading.stop();
-      });
-    });
 
     // This function checks for the `requiresLogin` flag.
     // If it's true, if checks that the user is authenticated
@@ -52,9 +37,9 @@ angular.module('starter', ['ionic',
   // use Auth0 Login. Please enter your information here.
   // Further info on https://github.com/auth0/auth0-angular#client-side-authentication
   authProvider.init({
-    domain: 'mgonto.auth0.com',
-    clientID: 'CoXRnOhBltFTJw9TJxys5dcto2p3Ow6g',
-    callbackURL: 'http://localhost:8001/',
+    callbackURL: 'https://contoso.auth0.com/mobile',
+    domain: 'contoso.auth0.com',
+    clientID: 'KPmb7b0Pps5jwzBRTc3wJzR9zQeCfDr5',
     callbackOnLocationHash: true
   });
 

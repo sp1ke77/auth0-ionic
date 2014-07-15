@@ -8,12 +8,15 @@
       Ionic Framework Team
     </author>
     <content src="index.html" />
-    <access origin="*" />
+    <access origin="*"  />
     <preference name="fullscreen" value="true" />
     <preference name="webviewbounce" value="false" />
     <preference name="UIWebViewBounce" value="false" />
     <preference name="DisallowOverscroll" value="true" />
     <feature name="StatusBar">
       <param name="ios-package" value="CDVStatusBar" onload="true" />
+    </feature>
+    <feature name="InAppBrowser">
+        <param name="ios-package" value="CDVInAppBrowser" />
     </feature>
 </widget>
