@@ -22,7 +22,7 @@ angular.module('starter.login', ['starter.services'])
           connection: 'Username-Password-Authentication',
           username: $scope.model.username,
           password: $scope.model.password
-        }).then(onLoginSuccess, onLoginFailure);
+        }, onLoginSuccess, onLoginFailure);
         Loading.start();
     };
 
@@ -30,7 +30,7 @@ angular.module('starter.login', ['starter.services'])
       auth.signin({
         connection: 'google-oauth2',
         popup: true
-      }).then(onLoginSuccess, onLoginFailure);
+      }, onLoginSuccess, onLoginFailure);
       Loading.start();
     };
 });
