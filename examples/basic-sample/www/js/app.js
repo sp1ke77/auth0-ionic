@@ -24,7 +24,7 @@ angular.module('starter', ['ionic',
   });
 })
 
-.config(function($stateProvider, $urlRouterProvider, authProvider) {
+.config(function($stateProvider, $urlRouterProvider, authProvider, $httpProvider) {
 
   // Ionic uses AngularUI Router which uses the concept of states
   // Learn more here: https://github.com/angular-ui/ui-router
@@ -100,6 +100,7 @@ angular.module('starter', ['ionic',
     loginState: 'login'
   });
 
+  $httpProvider.interceptors.push('authInterceptor');
   // if none of the above states are matched, use this as the fallback
   $urlRouterProvider.otherwise('/tab/dash');
 

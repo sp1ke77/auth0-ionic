@@ -12,7 +12,19 @@ angular.module('starter.controllers', [])
 })
 
 
-.controller('DashCtrl', function($scope) {
+.controller('DashCtrl', function($scope, $http) {
+
+  $scope.callApi = function() {
+    // Just call the API as you'd do using $http
+    $http({
+      url: 'http://auth0-nodejsapi-sample.herokuapp.com/secured/ping',
+      method: 'GET'
+    }).then(function() {
+      alert("We got the secured data successfully");
+    }, function() {
+      alert("Please download the API seed so that you can call it.");
+    });
+  }
 })
 
 .controller('FriendsCtrl', function($scope, Friends) {
