@@ -5,7 +5,10 @@
 // the 2nd parameter is an array of 'requires'
 // 'starter.services' is found in services.js
 // 'starter.controllers' is found in controllers.js
-angular.module('starter', ['ionic', 'starter.controllers', 'starter.services'])
+angular.module('starter', ['ionic',
+  'starter.controllers',
+  'starter.services',
+  'auth0'])
 
 .run(function($ionicPlatform) {
   $ionicPlatform.ready(function() {
@@ -21,7 +24,7 @@ angular.module('starter', ['ionic', 'starter.controllers', 'starter.services'])
   });
 })
 
-.config(function($stateProvider, $urlRouterProvider) {
+.config(function($stateProvider, $urlRouterProvider, authProvider) {
 
   // Ionic uses AngularUI Router which uses the concept of states
   // Learn more here: https://github.com/angular-ui/ui-router
@@ -29,11 +32,22 @@ angular.module('starter', ['ionic', 'starter.controllers', 'starter.services'])
   // Each state's controller can be found in controllers.js
   $stateProvider
 
+    // This is the Login state
+    .state('login', {
+      url: "/login",
+      templateUrl: "templates/login.html",
+      controller: "LoginCtrl"
+    })
+
     // setup an abstract state for the tabs directive
     .state('tab', {
       url: "/tab",
       abstract: true,
-      templateUrl: "templates/tabs.html"
+      templateUrl: "templates/tabs.html",
+      // The tab requires user login
+      data: {
+        requiresLogin: true
+      }
     })
 
     // Each tab has its own nav history stack:
@@ -77,8 +91,20 @@ angular.module('starter', ['ionic', 'starter.controllers', 'starter.services'])
       }
     });
 
+
+  // Configure Auth0
+  authProvider.init({
+    domain: AUTH0_DOMAIN,
+    clientID: AUTH0_CLIENT_ID,
+    callbackURL: 'dummy',
+    loginState: 'login'
+  });
+
   // if none of the above states are matched, use this as the fallback
   $urlRouterProvider.otherwise('/tab/dash');
 
+})
+.run(function(auth) {
+  auth.hookEvents();
 });
 
