@@ -1,5 +1,7 @@
 # Auth0 + Ionic Framework
 
+This example is still a **work in progress** and it's still not working properly.
+
 In this repository, you'll find all the information about integrating Auth0 with Ionic Framework.
 
 To read the documentation, please [click here](https://docs.auth0.com/new/native-platforms/ionic)
