@@ -1,8 +1,9 @@
 angular.module('starter.controllers', [])
 
-.controller('LoginCtrl', function($scope, auth,) {
+.controller('LoginCtrl', function($scope, auth, $state) {
   auth.signin({
-    popup: true
+    popup: true,
+    standalone: true
   }, function() {
     $state.go('tab.dash');
   }, function(error) {
