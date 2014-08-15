@@ -16,3 +16,5 @@ Once you have that, just clone the project and run the following:
 
 Enjoy your Ionic app now :).
 
+<img src="https://cloudup.com/iMmARAM4VJZ+" />
+
