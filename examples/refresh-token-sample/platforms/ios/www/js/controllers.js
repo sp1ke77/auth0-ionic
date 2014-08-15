@@ -39,5 +39,9 @@ angular.module('starter.controllers', [])
   $scope.friend = Friends.get($stateParams.friendId);
 })
 
-.controller('AccountCtrl', function($scope) {
+.controller('AccountCtrl', function($scope, auth) {
+
+  $scope.logout = function() {
+    auth.signout();
+  }
 });
