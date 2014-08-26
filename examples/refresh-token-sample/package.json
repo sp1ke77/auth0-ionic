@@ -1,5 +1,5 @@
 {
-  "name": "Ionic + Auth0 sample with RefreshTokens",
+  "name": "IonicAuth0samplewithRefreshTokens",
   "version": "1.0.0",
   "description": "Ionic + Auth0 sample with RefreshTokens",
   "dependencies": {
