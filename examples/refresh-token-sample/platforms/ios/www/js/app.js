@@ -99,7 +99,6 @@ angular.module('starter', ['ionic',
   authProvider.init({
     domain: AUTH0_DOMAIN,
     clientID: AUTH0_CLIENT_ID,
-    callbackURL: 'dummy',
     loginState: 'login'
   });
 
