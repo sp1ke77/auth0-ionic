@@ -8,7 +8,9 @@
 angular.module('starter', ['ionic',
   'starter.controllers',
   'starter.services',
-  'auth0'])
+  'auth0',
+  'angular-storage',
+  'angular-jwt'])
 
 .run(function($ionicPlatform) {
   $ionicPlatform.ready(function() {
@@ -24,7 +26,8 @@ angular.module('starter', ['ionic',
   });
 })
 
-.config(function($stateProvider, $urlRouterProvider, authProvider, $httpProvider) {
+.config(function($stateProvider, $urlRouterProvider, authProvider, $httpProvider,
+  jwtInterceptorProvider) {
 
   // Ionic uses AngularUI Router which uses the concept of states
   // Learn more here: https://github.com/angular-ui/ui-router
@@ -100,12 +103,34 @@ angular.module('starter', ['ionic',
     loginState: 'login'
   });
 
-  $httpProvider.interceptors.push('authInterceptor');
   // if none of the above states are matched, use this as the fallback
   $urlRouterProvider.otherwise('/tab/dash');
 
-})
-.run(function(auth) {
-  auth.hookEvents();
-});
+  jwtInterceptorProvider.tokenGetter = function(store, jwtHelper, auth) {
+    var idToken = store.get('token');
+    var refreshToken = store.get('refreshToken');
+    if (!idToken || !refreshToken) {
+      return null;
+    }
+    if (jwtHelper.isTokenExpired(idToken)) {
+      return auth.refreshIdToken(refreshToken).then(function(idToken) {
+        store.set('token', idToken);
+        return idToken;
+      });
+    } else {
+      return idToken;
+    }
+  }
 
+  $httpProvider.interceptors.push('jwtInterceptor');
+}).run(function($rootScope, auth, store) {
+  $rootScope.$on('$locationChangeStart', function() {
+    if (!auth.isAuthenticated) {
+      var token = store.get('token');
+      if (token) {
+        auth.authenticate(store.get('profile'), token);
+      }
+    }
+
+  });
+});

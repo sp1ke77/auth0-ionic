@@ -2,9 +2,12 @@ angular.module( 'sample', [
   'auth0',
   'ngRoute',
   'sample.home',
-  'sample.login'
+  'sample.login',
+  'angular-storage',
+  'angular-jwt'
 ])
-.config( function myAppConfig ( $routeProvider, authProvider, $httpProvider, $locationProvider) {
+.config( function myAppConfig ( $routeProvider, authProvider, $httpProvider,
+  $locationProvider, jwtInterceptorProvider) {
   $routeProvider
     .when( '/', {
       controller: 'HomeCtrl',
@@ -22,22 +25,46 @@ angular.module( 'sample', [
   authProvider.init({
     domain: AUTH0_DOMAIN,
     clientID: AUTH0_CLIENT_ID,
-    callbackURL: location.href,
     loginUrl: '/login'
   });
 
-  authProvider.on('loginSuccess', function($location) {
+  authProvider.on('loginSuccess', function($location, profilePromise, idToken, refreshToken, store) {
     $location.path('/');
+    store.set('token', idToken);
+    store.set('refreshToken', refreshToken);
+    profilePromise.then(function(profile) {
+      store.set('profile', profile);
+    });
   });
 
   authProvider.on('loginFailure', function($log, error) {
     $log('Error logging in', error);
   });
 
-  $httpProvider.interceptors.push('authInterceptor');
-})
-.run(function(auth) {
-  auth.hookEvents();
+  jwtInterceptorProvider.tokenGetter = function(store, jwtHelper, auth) {
+    var idToken = store.get('token');
+    var refreshToken = store.get('refreshToken');
+    if (!idToken || !refreshToken) {
+      return null;
+    }
+    if (jwtHelper.isTokenExpired(idToken)) {
+      return auth.refreshIdToken(refreshToken);
+    } else {
+      return idToken;
+    }
+  }
+
+  $httpProvider.interceptors.push('jwtInterceptor');
+}).run(function($rootScope, auth, store) {
+  $rootScope.$on('$locationChangeStart', function() {
+    if (!auth.isAuthenticated) {
+      var token = store.get('token');
+      if (token) {
+        auth.authenticate(store.get('profile'), token);
+      }
+    }
+
+  });
 })
 .controller( 'AppCtrl', function AppCtrl ( $scope, $location ) {
   $scope.$on('$routeChangeSuccess', function(e, nextRoute){

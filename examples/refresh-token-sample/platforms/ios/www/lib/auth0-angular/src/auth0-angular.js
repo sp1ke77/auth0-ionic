@@ -1,230 +1,188 @@
 (function () {
 
-  angular.module('auth0', ['auth0.storage', 'auth0.service', 'auth0.interceptor', 'auth0.utils']);
+  angular.module('auth0', ['auth0.service', 'auth0.utils'])
+    .run(function(auth) {
+      auth.hookEvents();
+    });
 
   angular.module('auth0.utils', [])
-    .provider('authUtils', function() {
-      var Utils = {
-        capitalize: function(string) {
-          return string ? string.charAt(0).toUpperCase() + string.substring(1).toLowerCase() : null;
-        },
-        urlBase64Decode: function(str) {
-          var output = str.replace('-', '+').replace('_', '/');
-          switch (output.length % 4) {
-            case 0: { break; }
-            case 2: { output += '=='; break; }
-            case 3: { output += '='; break; }
-            default: {
-              throw 'Illegal base64url string!';
-            }
-          }
-          return window.atob(output); //polifyll https://github.com/davidchambers/Base64.js
-        }
-      };
-
-      angular.extend(this, Utils);
-
-      this.$get = function($rootScope, $q) {
-        var authUtils = {};
-        angular.extend(authUtils, Utils);
-
-        authUtils.safeApply = function(fn) {
-          var phase = $rootScope.$root.$$phase;
-          if(phase === '$apply' || phase === '$digest') {
-            if(fn && (typeof(fn) === 'function')) {
-              fn();
-            }
-          } else {
-            $rootScope.$apply(fn);
-          }
-        };
-
-        authUtils.callbackify = function (nodeback, success, error, self) {
-        if (angular.isFunction(nodeback)) {
-          return function (args) {
-            args = Array.prototype.slice.call(arguments);
-            var callback = function (err, response, etc) {
-              if (err) {
-                error && error(err);
-                return;
-              }
-              // if more arguments then turn into an array for .spread()
-              etc = Array.prototype.slice.call(arguments, 1);
-              success && success.apply(null, etc);
-            };
-
-            args.push(authUtils.applied(callback));
-            nodeback.apply(self, args);
-          };
-        }
-      };
-
-        authUtils.promisify = function (nodeback, self) {
-        if (angular.isFunction(nodeback)) {
-          return function (args) {
-            args = Array.prototype.slice.call(arguments);
-            var dfd = $q.defer();
-            var callback = function (err, response, etc) {
-              if (err) {
-                dfd.reject(err);
-                return;
-              }
-              // if more arguments then turn into an array for .spread()
-              etc = Array.prototype.slice.call(arguments, 1);
-              dfd.resolve(etc.length > 1 ? etc : response);
-            };
-
-            args.push(authUtils.applied(callback));
-            nodeback.apply(self, args);
-            // spread polyfill only for promisify
-            dfd.promise.spread = dfd.promise.spread || function (fulfilled, rejected) {
-              return dfd.promise.then(function (array) {
-                return Array.isArray(array) ? fulfilled.apply(null, array) : fulfilled(array);
-              }, rejected);
-            };
-            return dfd.promise;
-          };
-        }
-      };
-
-        authUtils.applied = function(fn) {
-          // Adding arguments just due to a bug in Auth0.js.
-          return function (err, response) {
-            // Using variables so that they don't get deleted by UglifyJS
-            err = err;
-            response = response;
-            var argsCall = arguments;
-            authUtils.safeApply(function() {
-              fn.apply(null, argsCall);
-            });
-          };
-        };
-
-        return authUtils;
-      };
-
-
-
-    });
-
-  angular.module('auth0.interceptor', [])
-  .factory('authInterceptor', function ($rootScope, $q, $injector) {
-    return {
-      request: function (config) {
-        // When using auth dependency is never loading, we need to do this manually
-        // This issue should be related with: https://github.com/angular/angular.js/issues/2367
-        if (!$injector.has('auth')) {
-          return config;
-        }
-        var auth = $injector.get('auth');
-        config.headers = config.headers || {};
-        if (auth.idToken && !config.headers.Authorization) {
-          config.headers.Authorization = 'Bearer '+ auth.idToken;
-        }
-        return config;
-      },
-      responseError: function (response) {
-        // handle the case where the user is not authenticated
-        if (response.status === 401) {
-          $rootScope.$broadcast('auth0.forbidden', response);
-        }
-        return $q.reject(response);
+  .provider('authUtils', function() {
+    var Utils = {
+      capitalize: function(string) {
+        return string ? string.charAt(0).toUpperCase() + string.substring(1).toLowerCase() : null;
       }
     };
-  });
 
-  angular.module('auth0.storage', [])
-    .service('authStorage', function($injector) {
-      // Sets storage to use
-      var put, get, remove = null;
-      if (localStorage) {
-        put = function(what, value) {
-          return localStorage.setItem(what, value);
-        };
-        get = function(what) {
-          return localStorage.getItem(what);
-        };
-        remove = function(what) {
-          return localStorage.removeItem(what);
-        };
-      } else {
-        var $cookieStore = $injector.get('$cookieStore');
-        put = function(what, value) {
-          return $cookieStore.put(what, value);
-        };
-        get = function(what) {
-          return $cookieStore.get(what);
-        };
-        remove = function(what) {
-          return $cookieStore.remove(what);
+    angular.extend(this, Utils);
+
+    this.$get = function($rootScope, $q) {
+      var authUtils = {};
+      angular.extend(authUtils, Utils);
+
+      authUtils.safeApply = function(fn) {
+        var phase = $rootScope.$root.$$phase;
+        if(phase === '$apply' || phase === '$digest') {
+          if(fn && (typeof(fn) === 'function')) {
+            fn();
+          }
+        } else {
+          $rootScope.$apply(fn);
+        }
+      };
+
+      authUtils.callbackify = function (nodeback, success, error, self) {
+      if (angular.isFunction(nodeback)) {
+        return function (args) {
+          args = Array.prototype.slice.call(arguments);
+          var callback = function (err, response, etc) {
+            if (err) {
+              error && error(err);
+              return;
+            }
+            // if more arguments then turn into an array for .spread()
+            etc = Array.prototype.slice.call(arguments, 1);
+            success && success.apply(null, etc);
+          };
+          if (success || error) {
+            args.push(authUtils.applied(callback));
+          }
+          nodeback.apply(self, args);
         };
       }
+    };
 
-      this.store = function(idToken, accessToken, state, refreshToken) {
-        put('idToken', idToken);
-        if (accessToken) {
-          put('accessToken', accessToken);
-        }
-        if (state) {
-          put('state', state);
-        }
-        if (refreshToken) {
-         put('refreshToken', refreshToken);
-        }
-      };
+      authUtils.promisify = function (nodeback, self) {
+      if (angular.isFunction(nodeback)) {
+        return function (args) {
+          args = Array.prototype.slice.call(arguments);
+          var dfd = $q.defer();
+          var callback = function (err, response, etc) {
+            if (err) {
+              dfd.reject(err);
+              return;
+            }
+            // if more arguments then turn into an array for .spread()
+            etc = Array.prototype.slice.call(arguments, 1);
+            dfd.resolve(etc.length > 1 ? etc : response);
+          };
 
-      this.get = function() {
-        return {
-          idToken: get('idToken'),
-          accessToken: get('accessToken'),
-          state: get('state'),
-          refreshToken: get('refreshToken')
+          args.push(authUtils.applied(callback));
+          nodeback.apply(self, args);
+          // spread polyfill only for promisify
+          dfd.promise.spread = dfd.promise.spread || function (fulfilled, rejected) {
+            return dfd.promise.then(function (array) {
+              return Array.isArray(array) ? fulfilled.apply(null, array) : fulfilled(array);
+            }, rejected);
+          };
+          return dfd.promise;
+        };
+      }
+    };
+
+      authUtils.applied = function(fn) {
+        // Adding arguments just due to a bug in Auth0.js.
+        return function (err, response) {
+          // Using variables so that they don't get deleted by UglifyJS
+          err = err;
+          response = response;
+          var argsCall = arguments;
+          authUtils.safeApply(function() {
+            fn.apply(null, argsCall);
+          });
         };
       };
 
-      this.remove = function() {
-        remove('idToken');
-        remove('accessToken');
-        remove('state');
-        remove('refreshToken');
-      };
-    });
+      return authUtils;
+    };
 
-  angular.module('auth0.service', ['auth0.storage', 'auth0.utils']).provider('auth', function(authUtilsProvider) {
+
+
+  });
+
+
+
+  angular.module('auth0.service', ['auth0.utils'])
+  .provider('auth', function(authUtilsProvider) {
     var defaultOptions = {
       callbackOnLocationHash: true
     };
     var config = this;
 
+    var innerAuth0libraryConfiguration = {
+      'Auth0': {
+        signin: 'login',
+        signup: 'signup',
+        reset: 'changePassword',
+        library: function() {
+          return config.auth0js;
+        },
+        parseOptions: function(options) {
+          var retOptions = angular.copy(options);
+          if (retOptions.authParams) {
+            angular.extend(retOptions, retOptions.authParams);
+            delete retOptions.authParams;
+          }
+          return retOptions;
+        }
+      },
+      'Auth0Lock': {
+        signin: 'showSignin',
+        signup: 'showSignup',
+        reset: 'showReset',
+        library: function() {
+          return config.auth0lib;
+        },
+        parseOptions: function(options) {
+         return angular.copy(options);
+        }
+      }
+    };
+
+    function getInnerLibraryMethod(name, libName) {
+      libName = libName || config.lib;
+      var library = innerAuth0libraryConfiguration[libName].library();
+      return library[innerAuth0libraryConfiguration[libName][name]];
+    }
+
+    function getInnerLibraryConfigField(name, libName) {
+      libName = libName || config.lib;
+      return innerAuth0libraryConfiguration[libName][name];
+    }
+
+
 
     this.init = function(options, Auth0Constructor) {
-      if (!Auth0Constructor && typeof Auth0Widget === 'undefined' && typeof Auth0 === 'undefined') {
-        throw new Error('You must add either Auth0Widget.js or Auth0.js');
-      }
       if (!options) {
         throw new Error('You must set options when calling init');
       }
       this.loginUrl = options.loginUrl;
       this.loginState = options.loginState;
-      this.clientID = options.clientID;
+      this.clientID = options.clientID || options.clientId;
+      var domain = options.domain;
       this.sso = options.sso;
-      this.minutesToRenewToken = options.minutesToRenewToken || 120;
 
       var Constructor = Auth0Constructor;
-      if (!Constructor && typeof Auth0Widget !== 'undefined') {
-        Constructor = Auth0Widget;
+      if (!Constructor && typeof Auth0Lock !== 'undefined') {
+        Constructor = Auth0Lock;
       }
       if (!Constructor && typeof Auth0 !== 'undefined') {
         Constructor = Auth0;
       }
 
-      this.auth0lib = new Constructor(angular.extend(defaultOptions, options));
-      if (this.auth0lib.getClient) {
+      if (Constructor.name === 'Auth0Widget') {
+        throw new Error('Auth0Widget is not supported with this ' +
+          ' version of auth0-angular anymore. Please try with an older one');
+      }
+      if (Constructor.name === 'Auth0Lock') {
+        this.auth0lib = new Constructor(this.clientID, domain, angular.extend(defaultOptions, options));
         this.auth0js = this.auth0lib.getClient();
-        this.isWidget = true;
+        this.isLock = true;
+        this.lib = 'Auth0Lock';
       } else {
+        this.auth0lib = new Constructor(angular.extend(defaultOptions, options));
         this.auth0js = this.auth0lib;
-        this.isWidget = false;
+        this.isLock = false;
+        this.lib = 'Auth0';
       }
     };
 
@@ -238,14 +196,14 @@
       this.eventHandlers[anEvent].push(handler);
     };
 
-    var events = ['loginSuccess', 'loginFailure', 'logout', 'forbidden'];
+    var events = ['loginSuccess', 'loginFailure', 'logout', 'forbidden', 'authenticated'];
     angular.forEach(events, function(anEvent) {
       config['add' + authUtilsProvider.capitalize(anEvent) + 'Handler'] = function(handler) {
         config.on(anEvent, handler);
       };
     });
 
-    this.$get = function($rootScope, $q, $injector, authStorage, $window, $location, authUtils) {
+    this.$get = function($rootScope, $q, $injector, $window, $location, authUtils) {
       var auth = {
         isAuthenticated: false
       };
@@ -255,6 +213,7 @@
       };
 
       var callHandler = function(anEvent, locals) {
+        $rootScope.$broadcast('auth0.' + anEvent, locals);
         angular.forEach(getHandlers(anEvent) || [], function(handler) {
           $injector.invoke(handler, auth, locals);
         });
@@ -262,9 +221,7 @@
 
       // SignIn
 
-      var onSigninOk = function(idToken, accessToken, state, refreshToken, locationEvent) {
-          authStorage.store(idToken, accessToken, state, refreshToken);
-
+      var onSigninOk = function(idToken, accessToken, state, refreshToken, profile, isRefresh) {
           var profilePromise = auth.getProfile(idToken);
 
           var response = {
@@ -272,20 +229,19 @@
             accessToken: accessToken,
             state: state,
             refreshToken: refreshToken,
+            profile: profile,
             isAuthenticated: true
           };
 
           angular.extend(auth, response);
-          callHandler('loginSuccess', angular.extend({
-            profile: profilePromise,
-            locationEvent: locationEvent
+          callHandler(!isRefresh ? 'loginSuccess' : 'authenticated', angular.extend({
+            profilePromise: profilePromise
           }, response));
 
           return profilePromise;
       };
 
       function forbidden() {
-        authStorage.remove();
         if (config.loginUrl) {
           $location.path(config.loginUrl);
         } else if (config.loginState) {
@@ -296,37 +252,11 @@
       }
 
       // Redirect mode
-      var refreshingToken = null;
-      $rootScope.$on('$locationChangeStart', function(e) {
+      $rootScope.$on('$locationChangeStart', function() {
         var hashResult = config.auth0lib.parseHash($window.location.hash);
         if (!auth.isAuthenticated) {
           if (hashResult && hashResult.id_token) {
-            onSigninOk(hashResult.id_token, hashResult.access_token, hashResult.state, hashResult.refresh_token, e);
-            return;
-          }
-          var storedValues = authStorage.get();
-          if (storedValues && storedValues.idToken) {
-            if (auth.hasTokenExpired(storedValues.idToken)) {
-              if (storedValues.refreshToken) {
-                refreshingToken = auth.refreshToken(storedValues.refreshToken);
-                refreshingToken.then(function(idToken) {
-                  onSigninOk(idToken, storedValues.accessToken, storedValues.state, storedValues.refreshToken, e);
-                }, function() {
-                  forbidden();
-                });
-              } else {
-                forbidden();
-              }
-              return;
-            } else {
-              var expireDate = auth.getTokenExpirationDate(storedValues.idToken);
-              if (new Date().valueOf() - expireDate.valueOf() <= auth.config.minutesToRenewToken * 60 * 1000) {
-                auth.renewIdToken(storedValues.idToken).then(function(token) {
-                  auth.idToken = token;
-                });
-              }
-            }
-            onSigninOk(storedValues.idToken, storedValues.accessToken, storedValues.state, storedValues.refreshToken, e);
+            onSigninOk(hashResult.id_token, hashResult.access_token, hashResult.state, hashResult.refresh_token);
             return;
           }
           if (config.sso) {
@@ -335,21 +265,21 @@
                 auth.signin({
                   popup: false,
                   connection: ssoData.lastUsedConnection.strategy
-                }, config.auth0js);
+                }, null, null, 'Auth0');
               }
             }));
           }
         }
       });
 
-      $rootScope.$on('auth0.forbidden', function() {
+      $rootScope.$on('auth0.forbiddenRequest', function() {
         forbidden();
       });
 
       if (config.loginUrl) {
         $rootScope.$on('$routeChangeStart', function(e, nextRoute) {
           if (nextRoute.$$route && nextRoute.$$route.requiresLogin) {
-            if (!auth.isAuthenticated && !refreshingToken) {
+            if (!auth.isAuthenticated) {
               $location.path(config.loginUrl);
             }
           }
@@ -360,7 +290,7 @@
       if (config.loginState) {
         $rootScope.$on('$stateChangeStart', function(e, to) {
           if (to.data && to.data.requiresLogin) {
-            if (!auth.isAuthenticated && !refreshingToken) {
+            if (!auth.isAuthenticated) {
               e.preventDefault();
               $injector.get('$state').go(config.loginState);
             }
@@ -376,9 +306,9 @@
 
       auth.config = config;
 
-      var checkHandlers = function(options) {
+      var checkHandlers = function(options, successCallback) {
         var successHandlers = getHandlers('loginSuccess');
-        if (!options.popup && !options.username && (!successHandlers || successHandlers.length === 0)) {
+        if (!successCallback && !options.username && !options.email && (!successHandlers || successHandlers.length === 0)) {
             throw new Error('You must define a loginSuccess handler ' +
               'if not using popup mode or not doing ro call because that means you are doing a redirect');
           }
@@ -386,56 +316,6 @@
 
       auth.hookEvents = function() {
         // Does nothing. Hook events on application's run
-      };
-
-
-      auth.getTokenExpirationDate = function(token) {
-        var parts = token.split('.');
-
-        if (parts.length !== 3) {
-          return true;
-        }
-
-        var decoded = authUtils.urlBase64Decode(parts[1]);
-        if (!decoded) {
-          return true;
-        }
-
-        try {
-          decoded = JSON.parse(decoded);
-        } catch (e) {
-          return true;
-        }
-
-        if(!decoded.exp) {
-          return true;
-        }
-
-        var d = new Date(0); // The 0 here is the key, which sets the date to the epoch
-        d.setUTCSeconds(decoded.exp);
-
-        return d;
-      };
-
-      auth.hasTokenExpired = function (token) {
-        if (!token) {
-          return true;
-        }
-
-        var d = auth.getTokenExpirationDate(token);
-
-        if (isNaN(d)) {
-          return true;
-        }
-
-        // Token expired?
-        if( d.valueOf() > new Date().valueOf()) {
-          // No
-          return false;
-        } else {
-          // Yes
-          return true;
-        }
       };
 
       auth.getToken = function(options) {
@@ -452,7 +332,7 @@
         });
       };
 
-      auth.refreshToken = function(refresh_token) {
+      auth.refreshIdToken = function(refresh_token) {
         var refreshTokenAsync = authUtils.promisify(config.auth0js.refreshToken, config.auth0js);
 
         return refreshTokenAsync(refresh_token || auth.refreshToken).then(function (delegationResult) {
@@ -468,83 +348,85 @@
         });
       };
 
-      auth.signin = function(options, successCallback, errorCallback, lib) {
+      auth.signin = function(options, successCallback, errorCallback, libName) {
         options = options || {};
-        checkHandlers(options);
+        checkHandlers(options, successCallback, errorCallback);
+        options = getInnerLibraryConfigField('parseOptions', libName)(options);
 
-        var auth0lib = lib || config.auth0lib;
-        var signinCall = authUtils.callbackify(auth0lib.signin, function(profile, idToken, accessToken, state, refreshToken) {
-          onSigninOk(idToken, accessToken, state, refreshToken).then(function(profile) {
+        var signinMethod = getInnerLibraryMethod('signin', libName);
+        var successFn = !successCallback ? null : function(profile, idToken, accessToken, state, refreshToken) {
+          onSigninOk(idToken, accessToken, state, refreshToken, profile).then(function(profile) {
             if (successCallback) {
-              successCallback(profile);
+              successCallback(profile, idToken, accessToken, state, refreshToken);
             }
           });
-        }, function(err) {
+        };
+
+        var errorFn = !errorCallback ? null : function(err) {
           callHandler('loginFailure', { error: err });
           if (errorCallback) {
             errorCallback(err);
           }
-        }, auth0lib);
+        };
 
-        if (config.isWidget) {
-          signinCall(options, null);
-        } else {
-          signinCall(options);
-        }
-      };
+        var signinCall = authUtils.callbackify(signinMethod, successFn, errorFn , innerAuth0libraryConfiguration[libName || config.lib].library());
+
+        signinCall(options);
+    };
 
       auth.signup = function(options, successCallback, errorCallback) {
         options = options || {};
-        checkHandlers(options);
+        checkHandlers(options, successCallback, errorCallback);
+        options = getInnerLibraryConfigField('parseOptions')(options);
 
-        var auth0lib = config.auth0lib;
-        var signupCall = authUtils.callbackify(auth0lib.signup, function(profile, idToken, accessToken, state, refreshToken) {
+        var successFn = !successCallback ? null : function(profile, idToken, accessToken, state, refreshToken) {
           if (!angular.isUndefined(options.auto_login) && !options.auto_login) {
             successCallback();
           } else {
-            onSigninOk(idToken, accessToken, state, refreshToken).then(function(profile) {
+            onSigninOk(idToken, accessToken, state, refreshToken, profile).then(function(profile) {
               if (successCallback) {
-                successCallback(profile);
+                successCallback(profile, idToken, accessToken, state, refreshToken);
               }
             });
           }
-        }, function(err) {
+        };
+
+        var errorFn = !errorCallback ? null : function(err) {
           callHandler('loginFailure', { error: err });
           if (errorCallback) {
             errorCallback(err);
           }
-        }, auth0lib);
+        };
 
-        if (config.isWidget) {
-          signupCall(options, null);
-        } else {
-          signupCall(options);
-        }
-      };
+        var auth0lib = config.auth0lib;
+        var signupCall = authUtils.callbackify(getInnerLibraryMethod('signup'),successFn , errorFn, auth0lib);
+
+        signupCall(options);
+    };
 
       auth.reset = function(options, successCallback, errorCallback) {
         options = options || {};
 
+        options = getInnerLibraryConfigField('parseOptions')(options);
         var auth0lib = config.auth0lib;
-        var resetCall;
-        if (config.isWidget) {
-          resetCall = authUtils.callbackify(auth0lib.reset, successCallback, errorCallback, auth0lib);
-        } else {
-          resetCall = authUtils.callbackify(auth0lib.changePassword, successCallback, errorCallback, auth0lib);
-        }
+        var resetCall = authUtils.callbackify(getInnerLibraryMethod('reset'), successCallback, errorCallback, auth0lib);
 
         resetCall(options);
       };
 
       auth.signout = function() {
-        authStorage.remove();
+        auth.isAuthenticated = false;
         auth.profile = null;
         auth.profilePromise = null;
         auth.idToken = null;
         auth.state = null;
         auth.accessToken = null;
-        auth.isAuthenticated = false;
+        auth.tokenPayload = null;
         callHandler('logout');
+      };
+
+      auth.authenticate = function(profile, idToken, accessToken, state, refreshToken) {
+        onSigninOk(idToken, accessToken, state, refreshToken, profile, true);
       };
 
       auth.getProfile = function(idToken) {
@@ -559,4 +441,5 @@
       return auth;
     };
   });
+
 }());

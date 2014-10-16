@@ -1,4 +1,31 @@
+# 3.0.X
+
+## 3.0.0
+* Magic is removed. `auth0-angular` is now much smaller and with less magic
+* We recommend the usage of `angular-storage` and `angular-jwt` for storing information and token handling
+* All samples were redone. 
+* New tutorials are made to teach people how to use the new dependencies
+* We've migrated to Auth0 Lock
+
 # 2.2.X
+
+## 2.2.8
+* Fixed bug when using auth0js library
+
+## 2.2.7
+* Added `authenticated` event for after refresh
+
+## 2.2.6
+* BugFix with `sso: true`
+
+## 2.2.5
+* Added `tokenPayload` to `auth`
+
+## 2.2.3
+* Fixed bug with email not recognized as possible parameter to do /ro
+
+## 2.2.2
+* Small BugFix for Refresh Token
 
 ## 2.2.0
 * Default storage service is now `localStorage`. It can fallback to `ngCookies`. More info [here](https://github.com/auth0/auth0-angular/blob/master/docs/custom-storage.md)
