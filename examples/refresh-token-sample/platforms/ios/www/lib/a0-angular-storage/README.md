@@ -6,8 +6,8 @@ A Storage done right for AngularJS.
 
 * Uses **`localStorage` by default but if it's not available, it uses `ngCookies`**.
 * Lets you **save JS Objects**
-* If **you save an `Number`, you get an `Number`**, not a String
-* Uses a **caching system** so that if you already got a value, it won't get it from the store again.
+* If **you save a `Number`, you get a `Number`**, not a String
+* Uses a **caching system** so that if you already have a value, it won't get it from the store again.
 
 ## Installing it
 
@@ -55,7 +55,7 @@ You can also create namespaced storages if you want
 ````js
 angular.module('app', ['angular-storage'])
 .factory('Auth0Store', function(store) {
-  reutrn store.getNamespacedStore('auth0');
+  return store.getNamespacedStore('auth0');
 })
 .controller('Controller', function(Auth0Store) {
 
@@ -70,12 +70,6 @@ angular.module('app', ['angular-storage'])
   var myNewObject = Auth0Store.get('obj');
 
   angular.equals(myNewObject, myObj); // return true
-
-  Auth0Store.remove('obj');
-
-  store.set('number', 2);
-
-  typeof(store.get('number')) === 'number'
 });
 ````
 
@@ -95,7 +89,7 @@ Deletes the saved `value` with the key `name`
 
 ### store.getNamespacedStore(namespace, delimiter)
 
-Returns a new `store` service that will use the `nanespace` and `delimiter` when saving and getting values like the following `namespace[delimiter]key`. For example `auth0.object` considering `auth0` as `namespace` and `.` as a `delimiter`
+Returns a new `store` service that will use the `namespace` and `delimiter` when saving and getting values like the following `namespace[delimiter]key`. For example `auth0.object` considering `auth0` as `namespace` and `.` as a `delimiter`
 
 ## Usages
 
@@ -104,6 +98,10 @@ This library is used in [auth0-angular](https://github.com/auth0/auth0-angular)
 ## Contributing
 
 Just clone the repo, run `npm install`, `bower install` and then `gulp` to work :).
+
+## Issue Reporting
+
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public GitHub issue tracker. The [Responsible Disclosure Program](https://auth0.com/whitehat) details the procedure for disclosing security issues.
 
 ## License
 

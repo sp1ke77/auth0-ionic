@@ -10,9 +10,11 @@ var stop = require('../stop-event');
 var bind = require('../bind');
 var template = require('./reset.ejs');
 var regex = require('../regex');
+var PasswordStrength = require('../password-strength');
 var empty = regex.empty;
 var trim = require('trim');
 var email_parser = regex.email_parser;
+var slice = Array.prototype.slice;
 
 /**
  * Expose ResetPanel
@@ -31,7 +33,7 @@ module.exports = ResetPanel;
 function ResetPanel(widget, options) {
   if (!(this instanceof ResetPanel)) {
     return new ResetPanel(widget, options);
-  };
+  }
 
   // Both `widget` and `options` are required
   if (2 !== arguments.length) {
@@ -63,7 +65,7 @@ ResetPanel.prototype = create(Emitter.prototype);
 ResetPanel.prototype.query = function(selector) {
   if (!this.el) throw new Error('Can\'t get element since no `el` is set to local context');
   return $(selector, this.el);
-}
+};
 
 /**
  * Create `el`
@@ -80,7 +82,7 @@ ResetPanel.prototype.create = function(options) {
   this.el = $.create(widget.render(template, opts))[0];
   this.bindAll();
   return this.el;
-}
+};
 
 /**
  * Return `el` or create it
@@ -91,10 +93,8 @@ ResetPanel.prototype.create = function(options) {
  */
 
 ResetPanel.prototype.render = function() {
-  return null != this.el
-    ? this.el
-    : this.create.apply(this, arguments);
-}
+  return null != this.el ? this.el : this.create.apply(this, arguments);
+};
 
 /**
  * Resolves login options passed to template
@@ -106,7 +106,7 @@ ResetPanel.prototype.render = function() {
 
 ResetPanel.prototype.resolveOptions = function(options) {
   return _.extend({}, this.widget.options,  this.options, options);
-}
+};
 
 /**
  * Bind events to `this.el`, like submit
@@ -129,18 +129,33 @@ ResetPanel.prototype.bindAll = function() {
   this.query('.a0-options .a0-cancel')
     .a0_on('click', bind(this.oncancel, this));
 
+  var passwordStrength = new PasswordStrength(this.query('.a0-password_policy'),
+                                              this.query('#a0-reset_easy_password'),
+                                              this.options);
+
   return this;
-}
+};
+
+/**
+ * Handler for `submit` form event
+ *
+ * @param {Event} e
+ * @private
+ */
 
 ResetPanel.prototype.onsubmit = function(e) {
   stop(e);
-  var username = this.query('.a0-email input').val();
-  var password = this.query('.a0-password input').val();
-  var connection  = this.options._getAuth0Connection();
 
-  if (!valid(this)) return;
-  submit(this, connection.name, username, password);
-}
+  if (!this.valid()) { return; }
+  this.submit();
+};
+
+/**
+ * Handler for `cancel` event click
+ *
+ * @param {Event} e
+ * @private
+ */
 
 ResetPanel.prototype.oncancel = function(e) {
   stop(e);
@@ -149,29 +164,29 @@ ResetPanel.prototype.oncancel = function(e) {
   widget._showError();
   widget._focusError();
   widget._signinPanel();
-}
+};
 
 /**
- * Private helpers
+ * Validate form for errros before `submit`
+ *
+ * @private
  */
 
-/**
- * Validate form for errros
- */
-
-function valid(panel) {
+ResetPanel.prototype.valid = function () {
   var ok = true;
-  var email_input = panel.query('input[name=email]');
+  var email_input = this.query('input[name=email]');
   var email = trim(email_input.val());
   var email_empty = empty.test(email);
   var email_parsed = email_parser.exec(email.toLowerCase());
-  var password_input = panel.query('input[name=password]');
+  var validate_username = this.options._isUsernameRequired();
+  var username_parsed = regex.username_parser.exec(email_input.val().toLowerCase());
+  var password_input = this.query('input[name=password]');
   var password = password_input.val();
   var password_empty = empty.test(password);
-  var repeat_password_input = panel.query('input[name=repeat_password]');
+  var repeat_password_input = this.query('input[name=repeat_password]');
   var repeat_password = repeat_password_input.val();
   var repeat_password_empty = empty.test(repeat_password);
-  var widget = panel.widget;
+  var widget = this.widget;
 
   // asume valid by default
   // and reset errors
@@ -184,40 +199,55 @@ function valid(panel) {
   }
 
   if (!email_parsed && !email_empty) {
-    widget._focusError(email_input, widget.options.i18n.t('invalid'));
-    ok = false;
+    if(validate_username && !username_parsed) {
+      ok = false || (validate_username && username_parsed);
+      if(!ok) widget._focusError(email_input, widget.options.i18n.t('invalid'));
+    }
   }
 
   if (password_empty) {
     widget._focusError(password_input);
     ok = false;
-  };
+  }
 
   if (repeat_password_empty) {
     widget._focusError(repeat_password_input);
     ok = false;
-  };
+  }
 
   if (repeat_password_input.val() !== password_input.val()) {
     widget._focusError(repeat_password_input, widget.options.i18n.t('mustMatch'));
     ok = false;
-  };
+  }
 
   return ok;
 }
 
-function submit(panel, connectionName, username, password) {
+/**
+ * Submit validated form to Auth0 for password reset
+ *
+ * @private
+ */
+
+ResetPanel.prototype.submit = function () {
+  var panel = this;
   var widget = panel.widget;
-  var email_input = panel.query('input[name=email]');
+  var email_input = this.query('input[name=email]');
+  var username = email_input.val();
+  var password_input = this.query('input[name=password]');
+  var password = password_input.val();
+  var repeat_password_input = this.query('input[name=repeat_password]');
+  var connection  = this.options._getAuth0Connection();
+  var callback = panel.options.popupCallback;
 
   widget._loadingPanel({ mode: 'reset' });
 
   widget.$auth0.changePassword({
-    connection: connectionName,
+    connection: connection.name,
     username:   username,
     password:   password
   }, function (err) {
-    // I should here use the same instance of panel and re-render before showing errors!!
+    var args = slice.call(arguments, 0);
 
     // This is now dummy, and should no longer exist since all
     // dom events keep a reference to widget.$container
@@ -225,23 +255,33 @@ function submit(panel, connectionName, username, password) {
       return console && console.log && console.log('this password reset was triggered from another node instance', arguments);
     }
 
-    panel.query('.a0-password input').val('');
-    panel.query('.a0-repeatPassword input').val('');
+    // clean password input either there is an error or not
+    password_input.val('');
+    repeat_password_input.val('');
 
     if (!err) {
       email_input.val('');
       widget._signinPanel(panel.options);
-      return widget._showSuccess(widget.options.i18n.t('reset:successText'));
+      widget._showSuccess(widget.options.i18n.t('reset:successText'));
+
+      return 'function' === typeof callback ? callback.apply(widget, args) : null;
     }
 
     widget.setPanel(panel);
 
     if (400 === err.status) {
+      if ('invalid_password' === err.name) {
+        widget._focusError(email_input);
+        widget._showError(widget.options.i18n.t('reset:invalidPassword'));
+        return;
+      }
       widget._focusError(email_input);
       widget._showError(widget.options.i18n.t('reset:userDoesNotExistErrorText'));
     } else {
       widget._showError(widget.options.i18n.t('reset:serverErrorText'));
     }
+
+    return 'function' === typeof callback ? callback.apply(widget, args) : null;
 
   });
 

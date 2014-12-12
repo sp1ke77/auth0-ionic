@@ -1,6 +1,6 @@
-[![Auth0](https://i.cloudup.com/9sk1vhcfbS.png)](http://auth0.com)
+[![Auth0](https://cldup.com/yYelLVuXby.jpg)](http://auth0.com)
 
-# Auth0 Lock
+# Lock
 [![NPM version][npm-image]][npm-url]
 [![Build status][strider-image]][strider-url]
 [![Test coverage][coveralls-image]][coveralls-url]
@@ -10,7 +10,8 @@
 
 [Auth0](https://auth0.com) is an authentication broker that supports social identity providers as well as enterprise identity providers such as Active Directory, LDAP, Google Apps, Salesforce.
 
-The Auth0 Lock makes it easy to integrate SSO in your app. You won't have to worry about:
+Lock makes it easy to integrate SSO in your app. You won't have to worry about:
+
 * Having a professional looking login dialog that displays well on any resolution and device.
 * Finding the right icons for popular social providers.
 * Remembering what was the identity provider the user chose the last time.
@@ -234,6 +235,10 @@ Finally, point your browser at `http://localhost:9999/` and play around.
 
 We ensure browser compatibility in `Chrome`, `Safari`, `Firefox` and `IE >= 9`. We currently use [zuul](https://github.com/defunctzombie/zuul) along with [Saucelabs](https://saucelabs.com) to run integration tests on each push.
 
+## Issue Reporting
+
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public GitHub issue tracker. The [Responsible Disclosure Program](https://auth0.com/whitehat) details the procedure for disclosing security issues.
+
 ## Resources
 
 * [Complete API][lock-customization]
@@ -285,5 +290,5 @@ We ensure browser compatibility in `Chrome`, `Safari`, `Firefox` and `IE >= 9`. 
 [events-notes]: https://github.com/auth0/lock/wiki/Events
 [development-notes]: https://github.com/auth0/lock/wiki/Development-notes
 [release-process]: https://github.com/auth0/lock/wiki/Release-process
-[playground-url]: http://lock-pl4y.herokuapp.com
+[playground-url]: http://auth0.github.com/playground
 [migration-guide]: https://github.com/auth0/lock/wiki/Migration-guide

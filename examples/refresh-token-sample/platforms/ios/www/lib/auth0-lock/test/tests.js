@@ -22,9 +22,10 @@ describe('Auth0Lock', function () {
   var domain =      'abc.auth0.com';
   var clientID =    '123456789';
   var callbackURL = 'http://myapp.com/callback';
-  var widget, client;
+  var widget, client, getClientConfiguration;
 
   beforeEach(function (done) {
+    getClientConfiguration = Auth0Lock.prototype.getClientConfiguration;
     Auth0Lock.prototype.getClientConfiguration = function (cb) {
       var $client = {
         id: clientID,
@@ -77,6 +78,8 @@ describe('Auth0Lock', function () {
 
   afterEach(function (done) {
     global.window.location.hash = '';
+    global.window.Auth0 = null;
+    Auth0Lock.prototype.getClientConfiguration = getClientConfiguration;
     if (widget) {
       widget.hide(done);
     } else {
@@ -240,7 +243,7 @@ describe('Auth0Lock', function () {
     it('should use default assetsUrl if domain is *.auth0.com', function () {
       this.widget = new Auth0Lock(clientID, 'abc.auth0.com:3000');
 
-      expect(this.widget.$options.assetsUrl).to.equal('https://s3.amazonaws.com/assets.auth0.com/');
+      expect(this.widget.$options.assetsUrl).to.equal('https://cdn.auth0.com/');
     });
   });
 
@@ -466,6 +469,121 @@ describe('Auth0Lock', function () {
         bean.fire($('#a0-lock .a0-notloggedin .a0-iconlist [data-strategy="google-oauth2"]')[0], 'click');
       })
       .show({ callbackURL: callbackURL, responseType: 'token', authParams: { access_type: 'offline' } });
+    });
+
+    describe('when requires_username is enabled', function() {
+
+      beforeEach(function() {
+        this.options = this.options || {};
+        // Mock `_isUsernameRequired` so it asumes database has enabled
+        // requires_username on it's configuration
+        this.options._isUsernameRequired = function() { return true; };
+      });
+
+      it('should invalidate an empty username', function (done) {
+        var auth0 = widget;
+        var email = 'pepo@example.com';
+        var password = '12345';
+
+        auth0
+        .once('signin ready', function() {
+          $('#a0-signin_easy_password').val(password);
+          $('#a0-signin_easy_repeat_password').val(password);
+
+          bean.fire($('.a0-signin form')[0], 'submit');
+
+          expect($('.a0-email .a0-error-input')).to.not.be.empty();
+          done();
+        })
+        .showSignin(this.options);
+      });
+
+      it('should invalidate an invalid username', function (done) {
+        var auth0 = widget;
+        var username = '1.1.1.1';
+        var password = '12345';
+
+        auth0
+        .once('signin ready', function() {
+          $('#a0-signin_easy_email').val(username);
+          $('#a0-signin_easy_password').val(password);
+          $('#a0-signin_easy_repeat_password').val(password);
+
+          bean.fire($('.a0-signin form')[0], 'submit');
+
+          expect($('.a0-email .a0-error-input')).to.not.be.empty();
+          expect($('.a0-email .a0-error-input .a0-error-message')).to.not.be.empty();
+          expect($('.a0-error-message').text()).to.equal(auth0.options.i18n.t('invalid'));
+          done();
+        })
+        .showSignin(this.options);
+      });
+
+      it('should still invalidate an invalid email', function (done) {
+        var auth0 = widget;
+        var email = 'pepo@example';
+        var password = '12345';
+
+        auth0
+        .once('signin ready', function() {
+          $('#a0-signin_easy_email').val(email);
+          $('#a0-signin_easy_password').val(password);
+          $('#a0-signin_easy_repeat_password').val(password);
+
+          bean.fire($('.a0-signin form')[0], 'submit');
+
+          expect($('.a0-email .a0-error-input')).to.not.be.empty();
+          expect($('.a0-email .a0-error-input .a0-error-message')).to.not.be.empty();
+          expect($('.a0-error-message').text()).to.equal(auth0.options.i18n.t('invalid'));
+          done();
+        })
+        .showSignin(this.options);
+      });
+
+      it('should send valid username on submit', function (done) {
+        var auth0 = widget;
+        var username = 'pepe';
+        var email = 'pepo@example.com';
+        var password = '12345';
+
+        client.login = function(options) {
+          expect(options.username).to.equal(username);
+          expect(options.password).to.equal(password);
+          done();
+        }
+
+        auth0
+        .once('signin ready', function() {
+          $('#a0-signin_easy_email').val(username);
+          $('#a0-signin_easy_password').val(password);
+          $('#a0-signin_easy_repeat_password').val(password);
+
+          bean.fire($('.a0-signin form')[0], 'submit');
+        })
+        .showSignin(this.options);
+      });
+
+      it('should still send valid email on submit', function (done) {
+        var auth0 = widget;
+        var email = 'pepo@example.com';
+        var password = '12345';
+
+        client.login = function(options) {
+          expect(options.username).to.equal(email);
+          expect(options.password).to.equal(password);
+          done();
+        }
+
+        auth0
+        .once('signin ready', function() {
+          $('#a0-signin_easy_email').val(email);
+          $('#a0-signin_easy_password').val(password);
+          $('#a0-signin_easy_repeat_password').val(password);
+
+          bean.fire($('.a0-signin form')[0], 'submit');
+        })
+        .showSignin(this.options);
+      });
     });
   });
 

@@ -10,6 +10,12 @@
     var Utils = {
       capitalize: function(string) {
         return string ? string.charAt(0).toUpperCase() + string.substring(1).toLowerCase() : null;
+      },
+      fnName : function(fun) {
+        var ret = fun.toString();
+        ret = ret.substr('function '.length);
+        ret = ret.substr(0, ret.indexOf('('));
+        return ret ? ret.trim() : ret;
       }
     };
 
@@ -126,7 +132,7 @@
         }
       },
       'Auth0Lock': {
-        signin: 'showSignin',
+        signin: 'show',
         signup: 'showSignup',
         reset: 'showReset',
         library: function() {
@@ -169,11 +175,11 @@
         Constructor = Auth0;
       }
 
-      if (Constructor.name === 'Auth0Widget') {
+      if (authUtilsProvider.fnName(Constructor) === 'Auth0Widget') {
         throw new Error('Auth0Widget is not supported with this ' +
           ' version of auth0-angular anymore. Please try with an older one');
       }
-      if (Constructor.name === 'Auth0Lock') {
+      if (authUtilsProvider.fnName(Constructor) === 'Auth0Lock') {
         this.auth0lib = new Constructor(this.clientID, domain, angular.extend(defaultOptions, options));
         this.auth0js = this.auth0lib.getClient();
         this.isLock = true;
@@ -279,7 +285,7 @@
       if (config.loginUrl) {
         $rootScope.$on('$routeChangeStart', function(e, nextRoute) {
           if (nextRoute.$$route && nextRoute.$$route.requiresLogin) {
-            if (!auth.isAuthenticated) {
+            if (!auth.isAuthenticated && !auth.refreshTokenPromise) {
               $location.path(config.loginUrl);
             }
           }
@@ -290,7 +296,7 @@
       if (config.loginState) {
         $rootScope.$on('$stateChangeStart', function(e, to) {
           if (to.data && to.data.requiresLogin) {
-            if (!auth.isAuthenticated) {
+            if (!auth.isAuthenticated && !auth.refreshTokenPromise) {
               e.preventDefault();
               $injector.get('$state').go(config.loginState);
             }
@@ -335,9 +341,13 @@
       auth.refreshIdToken = function(refresh_token) {
         var refreshTokenAsync = authUtils.promisify(config.auth0js.refreshToken, config.auth0js);
 
-        return refreshTokenAsync(refresh_token || auth.refreshToken).then(function (delegationResult) {
+        auth.refreshTokenPromise = refreshTokenAsync(refresh_token || auth.refreshToken).then(function (delegationResult) {
           return delegationResult.id_token;
+        })['finally'](function() {
+          auth.refreshTokenPromise = null;
         });
+
+        return auth.refreshTokenPromise;
       };
 
       auth.renewIdToken = function(id_token) {
@@ -426,7 +436,7 @@
       };
 
       auth.authenticate = function(profile, idToken, accessToken, state, refreshToken) {
-        onSigninOk(idToken, accessToken, state, refreshToken, profile, true);
+        return onSigninOk(idToken, accessToken, state, refreshToken, profile, true);
       };
 
       auth.getProfile = function(idToken) {

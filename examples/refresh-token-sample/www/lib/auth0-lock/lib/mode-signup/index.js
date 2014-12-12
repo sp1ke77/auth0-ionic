@@ -12,9 +12,11 @@ var template = require('./signup.ejs');
 var buttonTmpl = require('../html/zocial-button.ejs');
 var regex = require('../regex');
 var gravatar = require('../gravatar');
+var PasswordStrength = require('../password-strength');
 var empty = regex.empty;
 var email_parser = regex.email_parser;
 var slice = Array.prototype.slice;
+var username_parser = regex.username_parser;
 
 /**
  * Expose SignupPanel
@@ -132,7 +134,7 @@ SignupPanel.prototype.bindAll = function() {
     .where({ social: true })
     .map(function (s) {
       var e = {
-        use_big_buttons: false,
+        use_big_buttons: options._useBigSocialButtons(),
         title: options.i18n.t('signupSocialButton').replace('{connection:title}', s.title)
       };
       return  _.extend({}, s, e);
@@ -156,6 +158,10 @@ SignupPanel.prototype.bindAll = function() {
   this.query('form')
     .a0_off('submit')
     .a0_on('submit', bind(this.onsubmit, this));
+
+  var passwordStrength = new PasswordStrength(this.query('.a0-password_policy'),
+                                              this.query('#a0-signup_easy_password'),
+                                              this.options);
 };
 
 /**
@@ -179,7 +185,6 @@ SignupPanel.prototype.onzocialclick = function(e) {
 
 SignupPanel.prototype.onsubmit = function(e) {
   stop(e);
-
   if (!this.valid()) return;
   this.submit();
 };
@@ -234,6 +239,8 @@ SignupPanel.prototype.submit = function() {
   var connection  = options._getAuth0Connection();
   var email_input = this.query('input[name=email]');
   var email = email_input.val();
+  var username_input = this.query('.a0-username input');
+  var username = username_input.val();
   var password_input = this.query('input[name=password]');
   var password = password_input.val();
   var callback = widget.options.popupCallback;
@@ -242,7 +249,8 @@ SignupPanel.prototype.submit = function() {
 
   widget.$auth0.signup({
     connection: connection.name,
-    username:   email,
+    username:   (options._isUsernameRequired()) ? username : email,
+    email:      email,
     password:   password,
     auto_login: false,
     popup:      panel.options.popup,
@@ -271,6 +279,9 @@ SignupPanel.prototype.submit = function() {
     if ('invalid_password' === err.name) {
       widget._focusError(password_input, widget.options.i18n.t('invalid'));
       widget._showError(widget.options.i18n.t('signup:invalidPassword'));
+    } else if ('username_exists' === err.name) {
+      widget._focusError(username_input);
+      widget._showError(widget.options.i18n.t('signup:usernameInUseErrorText'));
     } else {
       widget._focusError(email_input);
       widget._showError(widget.options.i18n.t('signup:userExistsErrorText'));
@@ -279,7 +290,7 @@ SignupPanel.prototype.submit = function() {
     return 'function' === typeof callback ? callback.apply(widget, args) : null;
   });
 
-}
+};
 
 /**
  * Validate form for errros before `submit`
@@ -288,6 +299,8 @@ SignupPanel.prototype.submit = function() {
  */
 
 SignupPanel.prototype.valid = function() {
+  // TODO: Lot of duplicated validation logic with `mode-signin` and `mode-reset`.
+  // Will be better to create a new object that handle input validations.
   var ok = true;
   var email_input = this.query('input[name=email]');
   var email_empty = empty.test(email_input.val());
@@ -311,10 +324,25 @@ SignupPanel.prototype.valid = function() {
     ok = false;
   }
 
+  if(this.options._isUsernameRequired()) {
+    var username_input = this.query('input[name=username]');
+    var username_empty = empty.test(username_input.val());
+    var username_parsed = username_parser.exec(username_input.val().toLowerCase());
+
+    if (username_empty) {
+      widget._focusError(username_input);
+      ok = false;
+    }
+    if (!username_parsed && !username_empty) {
+      widget._focusError(username_input, widget.options.i18n.t('invalid'));
+      ok = false;
+    }
+  }
+
   if (password_empty) {
     widget._focusError(password_input);
     ok = false;
   }
 
   return ok;
-}
+};

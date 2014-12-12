@@ -2,6 +2,13 @@
 
 This library will help you work with [JWTs](http://jwt.io/).
 
+## Key Features
+
+* **Decode a JWT** from your AngularJS app
+* Check the **expiration date** of the JWT
+* Automatically **send the JWT in every request** made to the server
+* Use **refresh tokens to always send a not expired JWT** to the server
+
 ## Installing it
 
 You have several options:
@@ -78,6 +85,50 @@ angular.module('app', ['angular-jwt'])
 }
 ````
 
+### Not sending the JWT for specific requests
+
+````js
+angular.module('app', ['angular-jwt'])
+.config(function Config($httpProvider, jwtInterceptorProvider) {
+  jwtInterceptorProvider.tokenGetter = function() {
+    return localStorage.getItem('id_token');
+  }
+  $httpProvider.interceptors.push('jwtInterceptor');
+})
+.controller('Controller', function Controller($http) {
+  // This request will NOT send the token as it has skipAuthentication
+  $http({
+    url: '/hola',
+    skipAuthorization: true
+    method: 'GET'
+  });
+}
+````
+
+### Sending different tokens based on URLs
+
+````js
+angular.module('app', ['angular-jwt'])
+.config(function Config($httpProvider, jwtInterceptorProvider) {
+  jwtInterceptorProvider.tokenGetter = function(config) {
+    if (config.url.indexOf('http://auth0.com') === 0) {
+      return localStorage.getItem('auth0.id_token');
+    } else {
+      return localStorage.getItem('id_token');
+    }
+  }
+  $httpProvider.interceptors.push('jwtInterceptor');
+})
+.controller('Controller', function Controller($http) {
+  // This request will send the auth0.id_token since URL matches
+  $http({
+    url: 'http://auth0.com/hola',
+    skipAuthentication: true
+    method: 'GET'
+  });
+}
+````
+
 ### Using promises on the `tokenGetter`: Refresh Token example
 
 As sometimes we need to get first the `id_token` in order to send it, we can return a promise in the `tokenGetter`. Let's see for example how we'd use a `refresh_token`
@@ -95,7 +146,8 @@ angular.module('app', ['angular-jwt'])
         // This makes it so that this request doesn't send the JWT
         skipAuthorization: true,
         method: 'POST'
-      }).then(function(id_token) {
+      }).then(function(response) {
+        var id_token = response.data.id_token;
         localStorage.setItem('id_token', id_token);
         return id_token;
       });
@@ -126,6 +178,10 @@ This library is used in [auth0-angular](https://github.com/auth0/auth0-angular)
 ## Contributing
 
 Just clone the repo, run `npm install`, `bower install` and then `gulp` to work :).
+
+## Issue Reporting
+
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public GitHub issue tracker. The [Responsible Disclosure Program](https://auth0.com/whitehat) details the procedure for disclosing security issues.
 
 ## What is Auth0?
 

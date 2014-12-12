@@ -2,9 +2,7 @@ angular.module('starter.controllers', [])
 
 .controller('LoginCtrl', function($scope, auth, $state, store) {
   auth.signin({
-    popup: true,
-    // Make the widget non closeable
-    standalone: true,
+    closable: false,
     // This asks for the refresh token
     // So that the user never has to log in again
     authParams: {

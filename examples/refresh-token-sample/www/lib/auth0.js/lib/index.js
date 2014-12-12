@@ -93,6 +93,19 @@ Auth0.prototype._getMode = function () {
   };
 };
 
+Auth0.prototype._addOfflineMode = function(options) {
+  if (options.offline_mode) {
+    if (!options.scope) {
+      throw new Error('When adding offline mode, scope should exist in options');
+    }
+
+    options.device = options.device || 'Browser';
+    if (options.scope.indexOf('offline_access') < 0) {
+      options.scope += ' offline_access';
+    }
+  }
+};
+
 /**
  * Get user information from API
  *
@@ -107,7 +120,8 @@ Auth0.prototype._getUserInfo = function (profile, id_token, callback) {
   if (profile && !profile.user_id) { // the scope was just openid
     var self = this;
     var url = 'https://' + self._domain + '/tokeninfo?';
-    var fail = function (status, description) {
+
+    function fail (status, description) {
       var error = new Error(status + ': ' + (description || ''));
 
       // These two properties are added for compatibility with old versions (no Error instance was returned)
@@ -225,7 +239,7 @@ Auth0.prototype.decodeJwt = function (jwt) {
  * return `error` and `error_description`.
  *
  * @method parseHash
- * @param {String} hash URL to be parsed
+ * @param {String} [hash=window.location.hash] URL to be parsed
  * @example
  *      var auth0 = new Auth0({...});
  *
@@ -242,6 +256,7 @@ Auth0.prototype.decodeJwt = function (jwt) {
  */
 
 Auth0.prototype.parseHash = function (hash) {
+  hash = hash || window.location.hash;
   if (hash.match(/error/)) {
     hash = hash.substr(1).replace(/^\//, '');
     var parsed_qs = qs.parse(hash);
@@ -258,6 +273,7 @@ Auth0.prototype.parseHash = function (hash) {
   hash = hash.substr(1).replace(/^\//, '');
   var parsed_qs = qs.parse(hash);
   var id_token = parsed_qs.id_token;
+  var refresh_token = parsed_qs.refresh_token;
   var prof = this.decodeJwt(id_token);
   var invalidJwt = function (error) {
     var err = {
@@ -283,14 +299,18 @@ Auth0.prototype.parseHash = function (hash) {
     profile: prof,
     id_token: id_token,
     access_token: parsed_qs.access_token,
-    state: parsed_qs.state
+    state: parsed_qs.state,
+    refresh_token: refresh_token
   };
 };
 
 /**
  * Signup
  *
- * @param {Object} options
+ * @param {Object} options Signup Options
+ *  @param {String} email New user email
+ *  @param {String} password New user password
+ *
  * @param {Function} callback
  * @api public
  */
@@ -308,9 +328,19 @@ Auth0.prototype.signup = function (options, callback) {
       tenant: this._domain.split('.')[0]
     });
 
+  this._addOfflineMode(query);
+
+  var popup;
+
+  if (options.popup  && !this._callbackOnLocationHash) {
+    popup = this._buildPopupWindow(options);
+  }
+
   function success () {
     if ('auto_login' in options && !options.auto_login) {
-      if (callback) callback();
+      if (callback) {
+        callback();
+      }
       return;
     }
     self.login(options, callback);
@@ -318,7 +348,12 @@ Auth0.prototype.signup = function (options, callback) {
 
   function fail (status, resp) {
     var error = new LoginError(status, resp);
-    if (callback) return callback(error);
+    if (popup) {
+      popup.kill();
+    }
+    if (callback) {
+      return callback(error);
+    }
     throw error;
   }
 
@@ -339,9 +374,10 @@ Auth0.prototype.signup = function (options, callback) {
     type:    'html',
     data:    query,
     success: success,
-    crossOrigin: true
-  }).fail(function (err) {
-    fail(err.status, err.responseText);
+    crossOrigin: true,
+    error: function (err) {
+      fail(err.status, err.responseText);
+    }
   });
 };
 
@@ -385,11 +421,13 @@ Auth0.prototype.changePassword = function (options, callback) {
     method:  'post',
     type:    'html',
     data:    query,
-    crossOrigin: true
-  }).fail(function (err) {
-    fail(err.status, err.responseText);
-  }).then(function (r) {
-    callback(null, r);
+    crossOrigin: true,
+    error: function (err) {
+      fail(err.status, err.responseText);
+    },
+    success: function (r) {
+      callback(null, r);
+    }
   });
 };
 
@@ -405,8 +443,12 @@ Auth0.prototype.changePassword = function (options, callback) {
 Auth0.prototype._buildAuthorizeQueryString = function (args, blacklist) {
   var query = xtend.apply(null, args);
 
+  // Adds offline mode to the query
+  this._addOfflineMode(query);
+
   // Elements to filter from query string
   blacklist = blacklist || ['popup', 'popupOptions'];
+  blacklist.push('offline_mode');
 
   var i, key;
 
@@ -431,6 +473,7 @@ Auth0.prototype._buildAuthorizeQueryString = function (args, blacklist) {
  */
 
 Auth0.prototype.login = Auth0.prototype.signin = function (options, callback) {
+
   if (typeof options.username !== 'undefined' ||
       typeof options.email !== 'undefined') {
     return this.loginWithUsernamePassword(options, callback);
@@ -440,17 +483,23 @@ Auth0.prototype.login = Auth0.prototype.signin = function (options, callback) {
     return this.loginPhonegap(options, callback);
   }
 
-  if (!!options.popup) {
+  if (!!options.popup && this._callbackOnLocationHash) {
     return this.loginWithPopup(options, callback);
   }
 
   var query = this._buildAuthorizeQueryString([
     this._getMode(),
     options,
-    { client_id: this._clientID, redirect_uri: this._callbackURL }]
-  );
+    { client_id: this._clientID, redirect_uri: this._callbackURL }
+  ]);
 
-  this._redirect('https://' + this._domain + '/authorize?' + query);
+  var url = 'https://' + this._domain + '/authorize?' + query;
+
+  if (options.popup) {
+    this._buildPopupWindow(options, url);
+  } else {
+    this._redirect(url);
+  }
 };
 
 /**
@@ -513,7 +562,16 @@ Auth0.prototype.loginPhonegap = function (options, callback) {
 
     var popupUrl = 'https://' + this._domain + '/authorize?' + query;
 
-    var ref = window.open(popupUrl, '_blank', 'location=yes');
+    var popupOptions = xtend({location: 'yes'} ,
+      options.popupOptions);
+
+    // This wasn't send before so we don't send it now either
+    delete popupOptions.width;
+    delete popupOptions.height;
+
+
+
+    var ref = window.open(popupUrl, '_blank', stringifyPopupSettings(popupOptions));
     var answered = false;
 
     function errorHandler(event) {
@@ -539,11 +597,10 @@ Auth0.prototype.loginPhonegap = function (options, callback) {
 
       if (result.id_token) {
         self.getProfile(result.id_token, function (err, profile) {
-          callback(err, profile, result.id_token, result.access_token, result.state);
-          return ref.close();
+          callback(err, profile, result.id_token, result.access_token, result.state, result.refresh_token);
         });
         answered = true;
-        return;
+        return ref.close();
       }
 
       // Case where we've found an error
@@ -600,12 +657,19 @@ Auth0.prototype.loginPhonegap = function (options, callback) {
 
 Auth0.prototype.loginWithPopup = function(options, callback) {
   var self = this;
+
+  if (!callback) {
+    throw new Error('popup mode should receive a mandatory callback');
+  }
+
   var query = this._buildAuthorizeQueryString([
     this._getMode(),
     options,
     { client_id: this._clientID, owp: true }]);
 
+
   var popupUrl = 'https://' + this._domain + '/authorize?' + query;
+
   var popupOptions = xtend(
     self._computePopupPosition({
       width: (options.popupOptions && options.popupOptions.width) || 500,
@@ -613,11 +677,6 @@ Auth0.prototype.loginWithPopup = function(options, callback) {
   }),
     options.popupOptions);
 
-  if (!callback && self._callbackOnLocationHash) {
-    throw new Error('popup mode should receive a mandatory callback');
-  } else if (callback && !self._callbackOnLocationHash) {
-    throw new Error('No callback supported when callbackOnLocationHash is false');
-  }
 
   var popup = WinChan.open({
     url: popupUrl,
@@ -626,17 +685,17 @@ Auth0.prototype.loginWithPopup = function(options, callback) {
   }, function (err, result) {
     if (err) {
       // Winchan always returns string errors, we wrap them inside Error objects
-      return callback(new Error(err), null, null, null, null);
+      return callback(new Error(err), null, null, null, null, null);
     }
 
     if (result && result.id_token) {
       return self.getProfile(result.id_token, function (err, profile) {
-        callback(err, profile, result.id_token, result.access_token, result.state);
+        callback(err, profile, result.id_token, result.access_token, result.state, result.refresh_token);
       });
     }
 
     // Case where we've found an error
-    return callback(new Error(result ? result.err : 'Something went wrong'), null, null, null, null);
+    return callback(new Error(result ? result.err : 'Something went wrong'), null, null, null, null, null);
   });
 
   popup.focus();
@@ -679,11 +738,13 @@ Auth0.prototype.loginWithResourceOwner = function (options, callback) {
       grant_type:   'password'
     });
 
+  this._addOfflineMode(query);
+
   var endpoint = '/oauth/ro';
 
   function enrichGetProfile(resp, callback) {
     self.getProfile(resp.id_token, function (err, profile) {
-      callback(err, profile, resp.id_token, resp.access_token, resp.state);
+      callback(err, profile, resp.id_token, resp.access_token, resp.state, resp.refresh_token);
     });
   }
 
@@ -708,22 +769,55 @@ Auth0.prototype.loginWithResourceOwner = function (options, callback) {
     crossOrigin: true,
     success: function (resp) {
       enrichGetProfile(resp, callback);
+    },
+    error: function (err) {
+      var er = err;
+      if (!er.status || er.status === 0) { //ie10 trick
+        er = {};
+        er.status = 401;
+        er.responseText = {
+          code: 'invalid_user_password'
+        };
+      }
+      else {
+        er.responseText = err;
+      }
+      var error = new LoginError(er.status, er.responseText);
+      callback(error);
     }
-  }).fail(function (err) {
-    var er = err;
-    if (!er.status || er.status === 0) { //ie10 trick
-      er = {};
-      er.status = 401;
-      er.responseText = {
-        code: 'invalid_user_password'
-      };
-    }
-    else {
-      er.responseText = err;
-    }
-    var error = new LoginError(er.status, er.responseText);
-    callback(error);
   });
+};
+
+/**
+ * Open the windows popup, store the winref in the instance and return it.
+ *
+ * We usually need to call this method before any ajax transaction in order
+ * to prevent the browser to block the popup.
+ *
+ * @param  {[type]}   options  [description]
+ * @param  {Function} callback [description]
+ * @return {[type]}            [description]
+ */
+
+Auth0.prototype._buildPopupWindow = function (options, url) {
+  if (this._current_popup) {
+    return this._current_popup;
+  }
+
+  var popupOptions = stringifyPopupSettings(xtend(
+                          { width: 500, height: 600 },
+                          (options.popupOptions || {})));
+
+  this._current_popup = window.open(url || 'about:blank', 'auth0_signup_popup',popupOptions);
+
+  var self = this;
+
+  this._current_popup.kill = function () {
+    this.close();
+    delete self._current_popup;
+  };
+
+  return this._current_popup;
 };
 
 /**
@@ -747,10 +841,7 @@ Auth0.prototype.loginWithUsernamePassword = function (options, callback) {
   var popup;
 
   if (options.popup  && !this._callbackOnLocationHash) {
-    var popupOptions = stringifyPopupSettings(xtend(
-                            { width: 500, height: 600 },
-                            (options.popupOptions || {})));
-    popup = window.open('about:blank', 'auth0_signup_popup',popupOptions);
+    popup = this._buildPopupWindow(options);
   }
 
   var query = xtend(
@@ -763,16 +854,18 @@ Auth0.prototype.loginWithUsernamePassword = function (options, callback) {
       tenant: this._domain.split('.')[0]
     });
 
+  this._addOfflineMode(query);
+
   var endpoint = '/usernamepassword/login';
 
   if (this._useJSONP) {
     return jsonp('https://' + this._domain + endpoint + '?' + qs.stringify(query), jsonpOpts, function (err, resp) {
       if (err) {
-        if (popup) popup.close();
+        if (popup) { popup.kill(); }
         return callback(err);
       }
       if('error' in resp) {
-        if (popup) popup.close();
+        if (popup) { popup.kill(); }
         var error = new LoginError(resp.status, resp.error);
         return callback(error);
       }
@@ -781,7 +874,9 @@ Auth0.prototype.loginWithUsernamePassword = function (options, callback) {
   }
 
   function return_error (error) {
-    if (callback) return callback(error);
+    if (callback) {
+      return callback(error);
+    }
     throw error;
   }
 
@@ -793,59 +888,75 @@ Auth0.prototype.loginWithUsernamePassword = function (options, callback) {
     crossOrigin: true,
     success: function (resp) {
       self._renderAndSubmitWSFedForm(options, resp);
+    },
+    error: function (err) {
+      var er = err;
+      if (popup) {
+        popup.kill();
+      }
+      if (!er.status || er.status === 0) { //ie10 trick
+        er = {};
+        er.status = 401;
+        er.responseText = {
+          code: 'invalid_user_password'
+        };
+      }
+      var error = new LoginError(er.status, er.responseText);
+      return return_error(error);
     }
-  }).fail(function (err) {
-    var er = err;
-    if (popup) popup.close();
-    if (!er.status || er.status === 0) { //ie10 trick
-      er = {};
-      er.status = 401;
-      er.responseText = {
-        code: 'invalid_user_password'
-      };
-    }
-    var error = new LoginError(er.status, er.responseText);
-    return return_error(error);
   });
+};
+
+Auth0.prototype.renewIdToken = function (id_token, callback) {
+  this.getDelegationToken({
+    id_token: id_token,
+    scope: 'passthrough',
+    api: 'auth0'
+  }, callback);
+};
+
+Auth0.prototype.refreshToken = function (refresh_token, callback) {
+  this.getDelegationToken({
+    refresh_token: refresh_token,
+    api: 'auth0'
+  }, callback);
 };
 
 /**
  * Get delegation token for certain addon or certain other clientId
  *
- * Examples:
+ * @example
  *
  *     auth0.getDelegationToken({
- *      id_token: the_id_token,
- *      api: 'auth0'
+ *      id_token:   '<user-id-token>',
+ *      target:     '<app-client-id>'
+ *      api_type: 'auth0'
  *     }, function (err, delegationResult) {
  *        if (err) return console.log(err.message);
- *        // Do stuff with delegation result
+ *        // Do stuff with delegation token
  *        expect(delegationResult.id_token).to.exist;
  *        expect(delegationResult.token_type).to.eql('Bearer');
  *        expect(delegationResult.expires_in).to.eql(36000);
- *     })
+ *     });
  *
- * @param {String} targetClientId
- * @param {String} id_token
- * @param {Object} options
- * @param {Function} callback
+ * @example
+ *
+ *      // get a delegation token from a Firebase API App
+  *     auth0.getDelegationToken({
+ *      id_token:   '<user-id-token>',
+ *      target:     '<app-client-id>'
+ *      api_type: 'firebase'
+ *     }, function (err, delegationResult) {
+ *      // Use your firebase token here
+ *    });
+ *
+ * @param {Object} [options]
+ *  @param {String} [id_token]
+ *  @param {String} [target]
+ *  @param {String} [api_type]
+ * @param {Function} [callback]
  * @api public
  */
-
- Auth0.prototype.renewIdToken = function (id_token, callback) {
-  this.getDelegationToken({
-    id_token: id_token,
-    api: 'auth0'
-  }, callback);
- }
-
- Auth0.prototype.refreshToken = function (refresh_token, callback) {
-  this.getDelegationToken({
-    refresh_token: refresh_token,
-    api: 'auth0'
-  }, callback);
- }
-
 Auth0.prototype.getDelegationToken = function (options, callback) {
   options = options || {};
 
@@ -856,9 +967,13 @@ Auth0.prototype.getDelegationToken = function (options, callback) {
   var query = xtend({
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
     client_id:  this._clientID,
-    target: options.targetClientId,
+    target: options.targetClientId || this._clientID,
     api_type: options.api
   }, options);
+
+  delete query.hasOwnProperty;
+  delete query.targetClientId;
+  delete query.api;
 
   var endpoint = '/delegation';
 
@@ -883,21 +998,22 @@ Auth0.prototype.getDelegationToken = function (options, callback) {
     crossOrigin: true,
     success: function (resp) {
       callback(null, resp);
-    }
-  }).fail(function (err) {
-    try {
-      callback(JSON.parse(err.responseText));
-    }
-    catch (e) {
-      var er = err;
-      if (!er.status || er.status === 0) { //ie10 trick
-        er = {};
-        er.status = 401;
-        er.responseText = {
-          code: 'invalid_operation'
-        };
+    },
+    error: function (err) {
+      try {
+        callback(JSON.parse(err.responseText));
       }
-      callback(new LoginError(er.status, er.responseText));
+      catch (e) {
+        var er = err;
+        if (!er.status || er.status === 0) { //ie10 trick
+          er = {};
+          er.status = 401;
+          er.responseText = {
+            code: 'invalid_operation'
+          };
+        }
+        callback(new LoginError(er.status, er.responseText));
+      }
     }
   });
 };
@@ -974,11 +1090,13 @@ Auth0.prototype.getSSOData = function (withActiveDirectories, callback) {
  *       expect(conns[0].strategy).to.eql('adfs');
  *       expect(conns[0].status).to.eql(false);
  *       expect(conns[0].domain).to.eql('Apprenda.com');
+ *       expect(conns[0].domain_aliases).to.eql(['Apprenda.com', 'foo.com', 'bar.com']);
  *     });
  *
  * @param {Function} callback
  * @api public
  */
+// XXX We may change the way this method works in the future to use client's s3 file.
 
 Auth0.prototype.getConnections = function (callback) {
   return jsonp('https://' + this._domain + '/public/api/' + this._clientID + '/connections', jsonpOpts, callback);

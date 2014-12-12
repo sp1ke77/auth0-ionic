@@ -48,19 +48,34 @@ angular.module( 'sample', [
       return null;
     }
     if (jwtHelper.isTokenExpired(idToken)) {
-      return auth.refreshIdToken(refreshToken);
+      return auth.refreshIdToken(refreshToken).then(function(idToken) {
+        store.set('token', idToken);
+        return idToken;
+      });
     } else {
       return idToken;
     }
   }
 
   $httpProvider.interceptors.push('jwtInterceptor');
-}).run(function($rootScope, auth, store) {
+}).run(function($rootScope, auth, store, jwtHelper, $location) {
   $rootScope.$on('$locationChangeStart', function() {
     if (!auth.isAuthenticated) {
       var token = store.get('token');
+      var refreshToken = store.get('refreshToken');
       if (token) {
-        auth.authenticate(store.get('profile'), token);
+        if (!jwtHelper.isTokenExpired(token)) {
+          auth.authenticate(store.get('profile'), token);
+        } else {
+          if (refreshToken) {
+            return auth.refreshIdToken(refreshToken).then(function(idToken) {
+              store.set('token', idToken);
+              auth.authenticate(store.get('profile'), idToken);
+            });
+          } else {
+            $location.path('/login');
+          }
+        }
       }
     }
 

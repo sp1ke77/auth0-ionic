@@ -18,15 +18,21 @@ describe('gravatar', function () {
 
   beforeEach(function (done) {
     this.widget = new Auth0Lock(clientID, domain);
+    this.options = {
+      rememberLastLogin: false,
+      integratedWindowsLogin: false
+    };
     done();
   });
 
   afterEach(function (done) {
+    this.options = null;
+    global.window.Auth0 = null;
     this.widget.hide(done);
   });
 
   it('should display gravatar when email has an associated gravatar account', function (done) {
-    var expectedGravatarURL = 'http://www.gravatar.com/avatar/9d8d8bff4484ddadf83684d88cb10188?d=404';
+    var expectedGravatarURL = 'https://www.gravatar.com/avatar/9d8d8bff4484ddadf83684d88cb10188?d=404';
     var gravatarEmail = 'albertopose@gmail.com';
 
     // Should never happen
@@ -55,7 +61,7 @@ describe('gravatar', function () {
       type(email, gravatarEmail);
     });
 
-    this.widget.show();
+    this.widget.show(this.options);
 
   });
 
@@ -87,6 +93,6 @@ describe('gravatar', function () {
       type(email, gravatarEmail);
     });
 
-    this.widget.show();
+    this.widget.show(this.options);
   });
 });
