@@ -46,7 +46,6 @@ angular.module('starter.controllers', [])
   };
 
   $scope.addFriend = function() {
-    debugger;
     if(!$scope.newFriend.$id) {
       Friends.add($scope.newFriend);
     } else {
