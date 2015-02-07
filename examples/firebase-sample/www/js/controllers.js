@@ -65,6 +65,10 @@ angular.module('starter.controllers', [])
     $scope.modal.show();
   };
 
+  $scope.close = function() {
+    $scope.modal.hide();
+  };
+
   $scope.$on('$destroy', function() {
     $scope.modal.remove();
   });
