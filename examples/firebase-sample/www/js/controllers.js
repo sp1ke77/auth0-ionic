@@ -35,20 +35,35 @@ angular.module('starter.controllers', [])
   });
 
   $scope.newFriend = {
-    name: ''
+    name: '',
+    description: ''
   };
 
   $scope.friends = Friends.all();
 
   $scope.showAddFriend = function() {
     $scope.modal.show();
-  }
+  };
 
   $scope.addFriend = function() {
-    Friends.add($scope.newFriend.name);
-    $scope.newFriendName = '';
+    debugger;
+    if(!$scope.newFriend.$id) {
+      Friends.add($scope.newFriend);
+    } else {
+      Friends.save($scope.newFriend);
+    }
+    $scope.newFriend = {};
     $scope.modal.hide();
-  }
+  };
+
+  $scope.deleteFriend = function(friend) {
+    Friends.delete(friend);
+  };
+
+  $scope.editFriend = function(friend) {
+    $scope.newFriend = friend;
+    $scope.modal.show();
+  };
 
   $scope.$on('$destroy', function() {
     $scope.modal.remove();
