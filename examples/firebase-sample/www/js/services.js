@@ -18,14 +18,22 @@ angular.module('starter.services', ['firebase'])
 
   this.all = function() {
     return friends;
-  }
+  };
 
-  this.add = function(name) {
-    friends.$add({name: name});
-  }
+  this.add = function(friend) {
+    friends.$add(friend);
+  };
 
   this.get = function(id) {
     return friends.$getRecord(id);
-  }
+  };
+
+  this.save = function(friend) {
+    friends.$save(friend);
+  };
+
+  this.delete = function(friend) {
+    friends.$remove(friend);
+  };
 
 });
