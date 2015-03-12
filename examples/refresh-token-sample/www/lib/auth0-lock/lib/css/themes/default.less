@@ -353,7 +353,14 @@
         position: absolute;
         color: #999;
       }
+
+      &.error-input {
+        input, .icon-budicon {
+          color: red;
+        }
+      }
     }
+
   }
 
   .email  input, .username input, .password input, .repeatPassword input{
@@ -587,14 +594,14 @@
   }
 
   &.active-pwd-strength {
-    .emailPassword {
+    .inputs-wrapper {
       position: relative;
     }
 
     .password_policy {
       .password_policy_arrow;
       position: absolute;
-      bottom: 124px;
+      bottom: 50px;
       left: 2.5%;
       width: 95%;
       display: block;
@@ -673,6 +680,12 @@
         text-transform: none;
       }
     }
+
+    #change_password {
+      .password_policy {
+        bottom: 100px;
+      }
+    }
   }
 
   /*==========  Forgot Password  ==========*/
@@ -735,6 +748,7 @@
 
     .input-box{
       border: 1px solid #ccc;
+
       input{
         border: 0 !important;
       }
@@ -743,6 +757,12 @@
 }
 
 
+/*=====================================
+=            Cordova                  =
+======================================*/
+.cordova.ios .centrix {
+  padding-top: 20px;
+}
 
 
 /*=====================================

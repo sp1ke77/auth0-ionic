@@ -10,6 +10,7 @@ require('./lib/insert-css');
 
 var bonzo = require('bonzo');
 var _ = require('underscore');
+var debug = require('debug')('auth0-lock');
 var Auth0 = require('auth0-js');
 var $ = require('./lib/bonzo-augmented');
 var EventEmitter = require('events').EventEmitter;
@@ -79,7 +80,8 @@ function Auth0Lock (clientID, domain, options) {
   // Holds auth0-js' instance
   this.$auth0 = new Auth0({
     clientID: this.$options.clientID,
-    domain: this.$options.domain
+    domain: this.$options.domain,
+    useCordovaSocialPlugins: this.$options.useCordovaSocialPlugins
   });
 
   // use domain as assetsUrl if no assetsUrl provided
@@ -208,9 +210,9 @@ Auth0Lock.prototype.onclientloadsuccess = function() {
 
   // We should use debug and log stuff without console.log
   // and only for debugging
-  if (console && console.log) {
-    console.log('Client configuration loaded');
-  }
+  // XXX: events not yet publicly supported
+  this.emit('client fetch success');
+  debug('Client fetch success');
 }
 
 /**
@@ -239,9 +241,11 @@ Auth0Lock.prototype.onclientloaderror = function(err) {
   // reset script loading state
   global.window.Auth0.script_tags[this.$options.clientID] = null;
 
-  if (console && console.log) {
-    console.log(new Error('Failed to load client configuration for ' + this.$options.clientID));
-  };
+  var error = new Error('Failed to load client configuration for ' + this.$options.clientID);
+
+  // XXX: events not yet publicly supported
+  this.emit('client fetch error', error);
+  debug('Error loading client: %s', error);
 }
 
 Auth0Lock.prototype.showNetworkError = function() {
@@ -318,13 +322,15 @@ Auth0Lock.prototype.render = function(tmpl, locals) {
  */
 
 Auth0Lock.prototype.insert = function() {
-  if (this.$container) return this;
+  if (this.$container) { return this; }
 
   var options = this.options;
   var cid = options.container;
   var locals = {
-    options: options,
-    alt_spinner: !has_animations() ?
+    options:      options,
+    cordova:      utils.isCordova(),
+    ios:          utils.isIOS(),
+    alt_spinner:  !has_animations() ?
       (this.$options.cdn + 'img/ajax-loader.gif') :
       null
   };
@@ -332,7 +338,7 @@ Auth0Lock.prototype.insert = function() {
   // widget container
   if (cid) {
     this.$container = document.getElementById(cid);
-    if (!this.$container) throw new Error('Not found element with \'id\' ' + cid);
+    if (!this.$container) { throw new Error('Not found element with \'id\' ' + cid); }
 
     this.$container.innerHTML = this.render(template, locals);
 
@@ -947,6 +953,9 @@ Auth0Lock.prototype._signin = function (panel) {
   var emailD = panel.query('.a0-email');
   var email_input = panel.query('input[name=email]');
 
+  // Send out the signin event, allowing users to dynamically change the options.
+  this.emit('signin submit', this.options, { email: email_input.val() });
+
   var email = null, domain, connection;
 
   var input_email_domain = this.options._extractEmailDomain(email_input.val().toLowerCase());
@@ -995,7 +1004,8 @@ Auth0Lock.prototype._signin = function (panel) {
   var loginOptions = _.extend({}, {
     connection: connection,
     popup: this.options.popup,
-    popupOptions: this.options.popupOptions
+    popupOptions: this.options.popupOptions,
+    sso: this.options.sso,
   }, this.options.authParams);
 
   this.$auth0.login(loginOptions);
@@ -1022,7 +1032,8 @@ Auth0Lock.prototype._signinWithAuth0 = function (panel, connection) {
     username: connection.domain ? username.replace('@' + connection.domain, '') : username,
     password: password,
     popup: self.options.popup,
-    popupOptions: self.options.popupOptions
+    popupOptions: self.options.popupOptions,
+    sso: self.options.sso
   };
 
   // We might be loosing some instance parameters here
@@ -1037,7 +1048,7 @@ Auth0Lock.prototype._signinWithAuth0 = function (panel, connection) {
   this._showError();
   this._focusError();
 
-  if (this.options.popup && this.options.sso && 'token' === this.options.responseType) {
+  if (this.options.popup && 'token' === this.options.responseType) {
     //This will use winchan etc...
     return this._signinPopupNoRedirect(connection.name, this.options.popupCallback, loginOptions, panel);
   }
@@ -1048,6 +1059,7 @@ Auth0Lock.prototype._signinWithAuth0 = function (panel, connection) {
 
   this._loadingPanel({ mode: 'signin', message: message });
 
+  debug('sigin in with auth0');
   this.$auth0.login(loginOptions, function (err) {
     if (!err) return;
 
@@ -1102,9 +1114,11 @@ Auth0Lock.prototype._signinSocial = function (e, connection, extraParams, panel)
       var loginOptions = _.extend({}, {
         connection: connectionName,
         popup: self.options.popup,
-        popupOptions: self.options.popupOptions
+        popupOptions: self.options.popupOptions,
+        sso: self.options.sso
       }, self.options.authParams, extraParams);
 
+      debug('sigin with social')
       this.$auth0.login(loginOptions);
     }
   }
@@ -1133,7 +1147,8 @@ Auth0Lock.prototype._signinPopupNoRedirect = function (connectionName, popupCall
   var loginOptions = _.extend({}, {
         connection: connectionName,
         popup: self.options.popup,
-        popupOptions: self.options.popupOptions
+        popupOptions: self.options.popupOptions,
+        sso: self.options.sso
       }, options.authParams, extraParams);
 
   if ('function' !== typeof callback) {
@@ -1149,6 +1164,7 @@ Auth0Lock.prototype._signinPopupNoRedirect = function (connectionName, popupCall
   var message = null == loginOptions.username ? this.options.i18n.t('signin:popupCredentials') : null;
   this._loadingPanel({ mode: 'signin', message: message });
 
+  debug('sigin in with popup');
   this.$auth0.login(loginOptions, function(err, profile, id_token, access_token, state) {
     var args = Array.prototype.slice.call(arguments, 0);
     if (!err) return callback.apply(self, args), self.hide();

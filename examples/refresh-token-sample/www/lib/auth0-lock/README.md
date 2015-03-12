@@ -45,9 +45,30 @@ Or our CDN:
 <!-- Latest minor release -->
 <script src="http://cdn.auth0.com/js/lock-6.x.min.js"></script>
 
-<!-- Latest patch release -->
+<!-- Latest patch release (recommended for production) -->
 <script src="http://cdn.auth0.com/js/lock-6.x.y.min.js"></script>
 ```
+
+If you are targeting mobile audiences, it's recommended that you add:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+```
+
+### Browserify
+
+If you are using browserify to build your project, you will need to add the following transformations required by Auth0 Lock:
+
+``` json
+{
+  "devDependencies": {
+    "brfs": "0.0.8",
+    "ejsify": "0.1.0",
+    "packageify": "^0.2.0"
+  }
+}
+```
+
 
 ## Usage
 
@@ -229,7 +250,7 @@ The **example** directory has a ready-to-go app. In order to run it you need [no
 
 Then execute `npm i` to install dependencies (only once) and `npm example` from the root of this project.
 
-Finally, point your browser at `http://localhost:9999/` and play around.
+Finally, point your browser at `http://localhost:3000/` and play around.
 
 ## Browser Compatibility
 

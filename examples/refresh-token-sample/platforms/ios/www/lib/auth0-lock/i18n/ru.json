@@ -1,6 +1,5 @@
 {
   "//": "This is an automatic translation. Help us to improve it.",
-  "//": "Some improvements by human :)",
   "loadingTitle":                   "Подождите...",
   "close":                          "Закрыть",
   "windowsAuthTitle":               "Windows аутентификация",
@@ -36,7 +35,7 @@
     "cancelAction":                 "Отмена",
     "headerText":                   "Пожалуйста, введите свой email и пароль",
     "footerText":                    "",
-    "enterpriseEmailWarningText":   "Этот домен {domain} был настроен для единого входа и нельзя создать учетную запись, попробуйте войти.",
+    "signupOnSSODomainErrorText":   "Этот домен {domain} был настроен для единого входа и нельзя создать учетную запись, попробуйте войти.",
     "serverErrorText":              "Произошла ошибка при обработке регистрации.",
     "userExistsErrorText":          "Пользователь существует."
   },

@@ -1,4 +1,5 @@
 var fs = require('fs');
+var path = require('path');
 var pkg = require('./package');
 var cssPrefix = require('css-prefix');
 
@@ -11,6 +12,10 @@ function  rename_release (v) {
     var dest = path.join(d, f.replace(/(\.min)?\.js$/, '-'+ v + '$1.js').replace('auth0-', ''));
     return dest;
   };
+}
+
+function node_bin (bin) {
+  return path.join('node_modules', '.bin', bin);
 }
 
 module.exports = function (grunt) {
@@ -44,11 +49,8 @@ module.exports = function (grunt) {
     },
     browserify: {
       options: {
-        bundleOptions: {
-          debug: true
-        },
         browserifyOptions: {
-          // fullPaths: true
+          debug: true
         },
         watch: true,
 
@@ -132,22 +134,22 @@ module.exports = function (grunt) {
     },
     exec: {
       'uglify': {
-        cmd: 'node_modules/.bin/uglifyjs build/auth0-lock.js  -b beautify=false,ascii_only=true > build/auth0-lock.min.js',
+        cmd: node_bin('uglifyjs') + ' build/auth0-lock.js  -b beautify=false,ascii_only=true > build/auth0-lock.min.js',
         stdout: true,
         stderr: true
       },
       'test-inception': {
-        cmd: 'node_modules/.bin/mocha ./test/support/characters-inception.test.js',
+        cmd: node_bin('mocha') + ' ./test/support/characters-inception.test.js',
         stdout: true,
         stderr: true
       },
       'test-integration': {
-        cmd: 'node_modules/.bin/zuul -- test/*.js',
+        cmd: node_bin('zuul') + ' -- test/*.js',
         stdout: true,
         stderr: true
       },
       'test-phantom': {
-        cmd: 'node_modules/.bin/zuul --ui mocha-bdd --phantom 9999 -- test/*.js',
+        cmd: node_bin('zuul') + ' --ui mocha-bdd --disable-tunnel --phantom 9999 -- test/*.js',
         stdout: true,
         stderr: true
       }
@@ -237,6 +239,44 @@ module.exports = function (grunt) {
           ]
         },
       },
+    },
+    http: {
+      purge_js: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + pkg.version + '.js',
+          method: 'DELETE'
+        }
+      },
+      purge_js_min: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + pkg.version + '.min.js',
+          method: 'DELETE'
+        }
+      },
+      purge_major_js: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + major_version + '.js',
+          method: 'DELETE'
+        }
+      },
+      purge_major_js_min: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + major_version + '.min.js',
+          method: 'DELETE'
+        }
+      },
+      purge_minor_js: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + minor_version + '.js',
+          method: 'DELETE'
+        }
+      },
+      purge_minor_js_min: {
+        options: {
+          url: process.env.CDN_ROOT + '/js/lock-' + minor_version + '.min.js',
+          method: 'DELETE'
+        }
+      }
     }
   });
 
@@ -270,5 +310,7 @@ module.exports = function (grunt) {
   grunt.registerTask('integration',   ['exec:test-inception', 'exec:test-integration']);
   grunt.registerTask('phantom',       ['build', 'exec:test-inception', 'exec:test-phantom']);
 
-  grunt.registerTask('cdn',           ['build', 'copy:release', 'aws_s3:clean', 'aws_s3:publish', 'fastly:purge']);
+  grunt.registerTask('purge_cdn',     ['http:purge_js', 'http:purge_js_min', 'http:purge_major_js', 'http:purge_major_js_min', 'http:purge_minor_js', 'http:purge_minor_js_min']);
+
+  grunt.registerTask('cdn',           ['build', 'copy:release', 'aws_s3:clean', 'aws_s3:publish', 'purge_cdn']);
 };

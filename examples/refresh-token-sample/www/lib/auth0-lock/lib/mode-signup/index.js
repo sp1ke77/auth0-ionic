@@ -3,6 +3,7 @@
  */
 
 var _ = require('underscore');
+var debug = require('debug')('auth0-lock:mode-signup');
 var $ = require('../bonzo-augmented');
 var Emitter = require('events').EventEmitter;
 var create = require('../object-create');
@@ -125,13 +126,8 @@ SignupPanel.prototype.resolveOptions = function(options) {
 SignupPanel.prototype.bindAll = function() {
   var options = this.options;
 
-  // hide only and only if set to false
-  this.query('.a0-options')
-    .toggleClass('a0-hide', !options.showSignupAction);
-
   var list = this.query('.a0-iconlist').html('');
-  _.chain(options.$client.strategies)
-    .where({ social: true })
+  _.chain(this.options._getSocialStrategies())
     .map(function (s) {
       var e = {
         use_big_buttons: options._useBigSocialButtons(),
@@ -141,11 +137,13 @@ SignupPanel.prototype.bindAll = function() {
     })
     .each(function (s) { return list.append(buttonTmpl(s)); });
 
-  if (options._getSocialStrategies().length > 0) {
-    this.query('.a0-separator, .a0-iconlist').show();
-  } else {
-    this.query('.a0-separator, .a0-iconlist').hide();
-  }
+  var anyEnterpriseOrDbConnection = this.options._isThereAnyEnterpriseOrDbConnection();
+  var anySocialConnection = this.options._isThereAnySocialConnection();
+
+  this.query('.a0-options').toggleClass('a0-hide', !options.showSignupAction);
+  this.query('.a0-iconlist').toggleClass('a0-hide', !anySocialConnection);
+  this.query('.a0-instructions, .a0-inputs, .a0-action').toggleClass('a0-hide', !anyEnterpriseOrDbConnection);
+  this.query('.a0-separator').toggleClass('a0-hide', !anySocialConnection || !anyEnterpriseOrDbConnection);
 
   this.query('.a0-email input').a0_on('input', bind(this.onemailinput, this));
 
@@ -159,9 +157,11 @@ SignupPanel.prototype.bindAll = function() {
     .a0_off('submit')
     .a0_on('submit', bind(this.onsubmit, this));
 
-  var passwordStrength = new PasswordStrength(this.query('.a0-password_policy'),
-                                              this.query('#a0-signup_easy_password'),
-                                              this.options);
+  if (anyEnterpriseOrDbConnection) {
+    new PasswordStrength(this.query('.a0-password_policy'),
+                        this.query('#a0-signup_easy_password'),
+                        this.options);
+  }
 };
 
 /**
@@ -185,7 +185,7 @@ SignupPanel.prototype.onzocialclick = function(e) {
 
 SignupPanel.prototype.onsubmit = function(e) {
   stop(e);
-  if (!this.valid()) return;
+  if (!this.valid()) { return; }
   this.submit();
 };
 
@@ -206,7 +206,7 @@ SignupPanel.prototype.oncancel = function(e) {
   widget._signinPanel();
 };
 
-SignupPanel.prototype.onemailinput = function (e) {
+SignupPanel.prototype.onemailinput = function () {
   var mailField = this.query('.a0-email input');
 
   if ('username' !== this.options.usernameStyle && this.options.gravatar) {
@@ -224,7 +224,7 @@ SignupPanel.prototype.onemailinput = function (e) {
 SignupPanel.prototype.gravatar = function(email) {
   gravatar(this.widget, email);
   return this;
-}
+};
 
 /**
  * Submit validated form to Auth0 for signup
@@ -247,6 +247,7 @@ SignupPanel.prototype.submit = function() {
 
   widget._loadingPanel({ mode: 'signup' });
 
+  debug('signin up');
   widget.$auth0.signup({
     connection: connection.name,
     username:   (options._isUsernameRequired()) ? username : email,
@@ -257,35 +258,66 @@ SignupPanel.prototype.submit = function() {
   }, function (err) {
     var args = slice.call(arguments, 0);
 
+    if (!widget.$container) {
+      return debug('singup ended but this.widget has been dettached from DOM: %o', arguments);
+    }
+
     // This is now dummy, and should no longer exist since all
     // dom events keep a reference to widget.$container
     if ( !widget.$container || widget.query()[0] !== widget.$container.childNodes[0] ) {
-      return console && console.log && console.log('this signup was triggered from another node instance', arguments);
+      return debug('this signup was triggered from another node instance', arguments);
     }
 
-    if (!err && widget.options.loginAfterSignup) return widget._signinWithAuth0(panel);
-    if (!err && 'function' === typeof callback) return callback.apply(widget, args), widget.hide();
-    if (!err) return widget.hide();
+    if (!err && widget.options.loginAfterSignup) { return widget._signinWithAuth0(panel); }
+    if (!err && 'function' === typeof callback) { return callback.apply(widget, args), widget.hide(); }
+    if (!err) { return widget.hide(); }
 
     // display signup again
     widget.setPanel(panel);
 
     // render errors
     if (400 !== err.status) {
-      widget._showError(widget.options.i18n.t('signup:serverErrorText'))
+      widget._showError(widget.options.i18n.t('signup:serverErrorText'));
       return 'function' === typeof callback ? callback.apply(widget, args) : null;
     }
 
-    if ('invalid_password' === err.name) {
+    function focusPasswordInvalid() {
       widget._focusError(password_input, widget.options.i18n.t('invalid'));
-      widget._showError(widget.options.i18n.t('signup:invalidPassword'));
-    } else if ('username_exists' === err.name) {
-      widget._focusError(username_input);
-      widget._showError(widget.options.i18n.t('signup:usernameInUseErrorText'));
-    } else {
-      widget._focusError(email_input);
-      widget._showError(widget.options.i18n.t('signup:userExistsErrorText'));
     }
+
+    function focusInput() {
+      widget._focusError(username_input);
+    }
+
+    var errors = {
+      invalid_password: {
+        caption: widget.options.i18n.t('signup:invalidPassword'),
+        action: focusPasswordInvalid
+      },
+      user_exists: {
+        caption: widget.options.i18n.t('signup:userExistsErrorText'),
+        action: focusInput
+      },
+      username_exists: {
+        caption: widget.options.i18n.t('signup:usernameInUseErrorText'),
+        action: focusInput
+      },
+      signup_on_sso_domain: {
+        caption: widget.options.i18n.t('signup:signupOnSSODomainErrorText'),
+        action: focusInput
+      },
+      'default': {
+        caption: widget.options.i18n.t('signup:serverErrorText'),
+        action: focusInput
+      }
+    };
+
+    var error = errors[err.name] || errors['default'];
+
+    var domainName = (err && err.details && err.details.domain) || '';
+
+    widget._showError(error.caption.replace('{domain}', domainName));
+    error.action();
 
     return 'function' === typeof callback ? callback.apply(widget, args) : null;
   });

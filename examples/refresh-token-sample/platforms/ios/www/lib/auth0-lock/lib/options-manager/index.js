@@ -215,22 +215,21 @@ OptionsManager.prototype._onclientloaded = function(client) {
 
   // if booted on `signup` or `reset`, but not configured
   // on connection => override mode with `signin`
-  if (this.mode === 'signup' && !auth0Conn.showSignup) { this.mode = 'signin'; }
+  if (this.mode === 'signup' && !auth0Conn.showSignup && !this._isThereAnySocialConnection()) { this.mode = 'signin'; }
   if (this.mode === 'reset' && !auth0Conn.showForgot) { this.mode = 'signin'; }
 
   // Resolve show action buttons or not
   this.showSignupAction = (this.disableSignupAction !== true) && ((auth0Conn && auth0Conn.showSignup) || this.signupLink);
   this.showResetAction = (this.disableResetAction !== true) && ((auth0Conn && auth0Conn.showForgot) || this.resetLink);
 
-  // Resolve usernameStyle from connection information
-  // and default
-  this.usernameStyle = null != this.usernameStyle ? this.usernameStyle : 'email';
+    // override usernameStyle if required by connection
+    var auth0ConnStrategy = this._getClientStrategyByConnectionName(auth0Conn.name) || {};
+    if (!this.usernameStyle && (auth0ConnStrategy.name === 'ad' || auth0ConnStrategy.name === 'auth0-adldap')) {
+      this.usernameStyle = 'username';
+    }
 
-  // override usernameStyle if required by connection
-  var auth0ConnStrategy = this._getClientStrategyByConnectionName(auth0Conn.name) || {};
-  if (!this.usernameStyle && (auth0ConnStrategy.name === 'ad' || auth0ConnStrategy.name === 'auth0-adldap')) {
-    this.usernameStyle = 'username';
-  }
+  // Ensure usernameStyle
+  this.usernameStyle = null != this.usernameStyle ? this.usernameStyle : 'email';
 
   this.state('loaded');
 
