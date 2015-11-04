@@ -66,7 +66,7 @@ angular.module('myCoolApp').controller('LoginCtrl', function(auth) {
   $scope.signin = function() {
     auth.signin({
       authParams: {
-        scope: 'openid profile' // This is if you want the full JWT
+        scope: 'openid name email'
       }
     }, function() {
       $location.path('/user-info')
@@ -94,7 +94,7 @@ angular.module('myCoolApp').controller('UserInfoCtrl', function(auth) {
 ````
 ````html
 <!-- userInfo.html -->
-<span>{{profile.first_name}} {{profile.email}}</span>
+<span>{{profile.name}} {{profile.email}}</span>
 ````
 
 ### Keeping the user logged in, saving the token and using a refresh token.
