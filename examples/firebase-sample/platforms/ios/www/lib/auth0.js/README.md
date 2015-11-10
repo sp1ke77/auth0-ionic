@@ -171,7 +171,8 @@ Once you have succesfully authenticated, Auth0 will redirect to your `callbackUR
   });
 ```
 
-Or just parse the hash (if loginOption.scope is not `openid profile`, then the profile will only contains the `user_id`):
+Or just parse the hash (if loginOption.scope is `openid`, then the profile will only contain the `user_id`):
+Taking this into consideration: `openid`: It will return, not only the access_token, but also an id_token which is a Json Web Token (JWT). The JWT will only contain the user id (sub claim). You can use constant `ParemterBuilder.SCOPE_OPENID`.
 
 ```js
   $(function () {
@@ -252,7 +253,7 @@ If you just want to get a new token for an addon that you've activated, you can 
 var options = {
   id_token: "your id token", // The id_token you have now
   api: 'firebase', // This defaults to the first active addon if any or you can specify this
-  "scope": "openid profile"		    // default: openid
+  "scope": "openid name email"		    // default: openid
 };
 
 auth0.getDelegationToken(options, function (err, delegationResult) {
