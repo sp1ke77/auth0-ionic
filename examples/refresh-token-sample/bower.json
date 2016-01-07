@@ -2,16 +2,13 @@
   "name": "basic-sample",
   "dependencies": {
     "auth0-angular": "4.*",
-    "a0-angular-storage": ">= 0.0.12",
+    "a0-angular-storage": ">= 0.0.13",
     "angular-jwt": ">= 0.0.9"
   },
   "devDependencies": {
-    "ionic": "driftyco/ionic-bower#v1.1.1"
+    "ionic": "driftyco/ionic-bower#v1.2.4"
   },
   "resolutions": {
-    "auth0.js": ">= 5.2.2",
-    "angular": ">= 1.0.8",
-    "angular-animate": "1.4.3",
-    "angular-sanitize": "1.4.3"
+    "angular": ">= 1.0.8"
   }
 }
