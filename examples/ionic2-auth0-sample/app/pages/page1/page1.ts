@@ -34,8 +34,8 @@ export class Page1 {
 		//Save the profile
         this.userProfile = profile;
 
-        this.user_name = profile.name;
-        this.user_email = profile.email;
+        this.user_name = this.userProfile.name;
+        this.user_email = this.userProfile.email;
 		this.isAuthenticated = true;
 
       });
