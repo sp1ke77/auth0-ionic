@@ -27,9 +27,7 @@
         <param name="ios-package" onload="true" value="CDVStatusBar" />
     </feature>
     <feature name="InAppBrowser">
-        <param name="ios-package" value="CDVInAppBrowser"/><!-- Auth0 Lock script -->
-  <script src="//cdn.auth0.com/js/lock-7.12.min.js"></script>
-
+        <param name="ios-package" value="CDVInAppBrowser"/>
         <param name="android-package" value="org.apache.cordova.inappbrowser.InAppBrowser"/>
     </feature>
 </widget>
