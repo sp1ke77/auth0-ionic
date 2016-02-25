@@ -16,6 +16,7 @@ export class Page1 {
   public user_name = "";
   public user_email = "";
   public isAuthenticated = false;
+  public userProfile;
 
   constructor(public nav: NavController, public zone:NgZone, public http: Http, public authHttp: AuthHttp) {
 
@@ -27,9 +28,11 @@ export class Page1 {
         if (err) {
           throw new Error(err);
         }
-
-        localStorage.setItem('profile', JSON.stringify(profile));
+		//Save the token
         localStorage.setItem('id_token', id_token);
+		
+		//Save the profile
+        this.userProfile = profile;
 
         this.user_name = profile.name;
         this.user_email = profile.email;
@@ -42,7 +45,6 @@ export class Page1 {
 
   logout() {
     this.zone.run(() => {
-      localStorage.removeItem('profile');
       localStorage.removeItem('id_token');
 	  this.isAuthenticated = false;
     });
